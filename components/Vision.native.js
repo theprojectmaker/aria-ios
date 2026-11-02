@@ -98,8 +98,13 @@ function VLModel({ t }) {
         setMessages([...base, { role: 'assistant', text: acc, streaming: true }]);
       });
     } catch (e) {
-      const info = img ? ` [img ${img.width}x${img.height} ${img.format} ${img.data && img.data.length}b]` : '';
-      acc = acc || ('⚠️ ' + ((e && e.message) ? e.message : String(e)) + info);
+      // The on-device vision model can reject an image on some devices
+      // (ExecuTorch "NotSupported" during prefill). Show a clean message
+      // rather than a raw error dump.
+      const raw = (e && e.message) ? e.message : String(e);
+      acc = acc || (/not ?supported/i.test(raw)
+        ? "I couldn't read that photo on this device yet — on-device vision isn't supported here. I can still help with anything in Chat."
+        : "Sorry, I couldn't read that photo. Try another one, or ask me in Chat.");
     }
     setMessages([...base, { role: 'assistant', text: acc, streaming: false }]);
     setGenerating(false);
