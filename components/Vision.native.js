@@ -7,21 +7,10 @@ import { useTheme } from './theme';
 
 const ENABLED_KEY = 'aria.vision.enabled.v1';
 
-const SYSTEM =
-  'You are Aria, looking at the photo the user sends. Answer their question about it clearly and concisely. ' +
-  'If no question is given, briefly describe what is in the photo.';
-
-const VISION_EXAMPLES = [
-  'What’s in this photo?',
-  'Read any text you can see.',
-  'What should I know about this?',
-  'Describe this in one sentence.',
-];
-
 const VISION_DOWNLOAD = {
   title: 'Set up Vision',
-  body: 'Download the on-device vision model once so Aria can look at your photos — right on your phone. It needs the internet this one time. After that, it works completely offline.',
-  sizeNote: 'About 0.7 GB · stored on your device',
+  body: 'Download the on-device vision models once so Aria can see your photos — identify what’s in them and read any text, right on your phone. It needs the internet this one time. After that, it works completely offline.',
+  sizeNote: 'A small one-time download · stored on your device',
 };
 
 class Boundary extends React.Component {
@@ -31,27 +20,53 @@ class Boundary extends React.Component {
   render() { return this.state.err ? this.props.fallback : this.props.children; }
 }
 
-function VLModel({ t }) {
-  const { models, useLLMChatSession } = require('react-native-executorch');
-  const VL = models.llm.LFM2_5_VL_450M.DEFAULT || models.llm.LFM2_5_VL_450M.XNNPACK_8DA4W;
-  const llm = useLLMChatSession(VL, {
-    initialMessages: [{ role: 'system', content: SYSTEM }],
-    generationConfig: { maxNewTokens: 384, temperature: 0.7 },
-  });
+// Turn a label like "golden retriever" / "n02099601 golden_retriever" into clean text.
+function pretty(label) {
+  let s = String(label == null ? '' : label);
+  s = s.replace(/^n\d+\s*/i, '').replace(/_/g, ' ').trim();
+  return s.replace(/\s*,\s*/g, ', ');
+}
+
+function compose(labels, textLines) {
+  const parts = [];
+  const top = (labels || []).filter((c) => c && c.confidence > 0.04).slice(0, 4);
+  if (top.length) {
+    const best = top[0];
+    const rest = top.slice(1).map((c) => pretty(c.label)).filter(Boolean);
+    let line = `I can see **${pretty(best.label)}** (${Math.round(best.confidence * 100)}% sure)`;
+    if (rest.length) line += ` — it might also be ${rest.join(', ')}`;
+    parts.push(line + '.');
+  } else {
+    parts.push("I had a look but couldn’t confidently name what’s in this one.");
+  }
+  const lines = (textLines || []).map((r) => (r && r.text ? r.text.trim() : '')).filter(Boolean);
+  if (lines.length) {
+    const shown = lines.slice(0, 12).join('\n');
+    parts.push(`\n**Text I can read:**\n${shown}`);
+  }
+  return parts.join('\n');
+}
+
+function VisionModel({ t }) {
+  const RNE = require('react-native-executorch');
+  const { models, useClassifier, useOpticalCharacterRecognizer } = RNE;
+  const cls = useClassifier(models.classification.EFFICIENTNET_V2_S.DEFAULT);
+  const ocr = useOpticalCharacterRecognizer(models.ocr.PPOCRV6_SMALL.DEFAULT);
 
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [generating, setGenerating] = useState(false);
   const [attachedUri, setAttachedUri] = useState(null);
   const [preparing, setPreparing] = useState(false);
+  const [working, setWorking] = useState(false);
   const attachRef = useRef(null);
 
   const clearAttach = () => { attachRef.current = null; setAttachedUri(null); };
+  const ready = cls.isReady && ocr.isReady;
 
   const status = (() => {
-    if (llm.error) return { state: 'unavailable', label: 'Could not load vision model' };
-    if (!llm.isReady && (llm.downloadProgress || 0) < 1) return { state: 'downloading', progress: llm.downloadProgress || 0, label: `Downloading ${Math.round((llm.downloadProgress || 0) * 100)}%` };
-    if (!llm.isReady) return { state: 'loading', label: 'Loading vision model…' };
+    if (cls.error || ocr.error) return { state: 'unavailable', label: 'Could not load vision models' };
+    const p = Math.min(cls.downloadProgress || 0, ocr.downloadProgress || 0);
+    if (!ready && p < 1) return { state: 'downloading', progress: p, label: `Downloading ${Math.round(p * 100)}%` };
+    if (!ready) return { state: 'loading', label: 'Loading vision models…' };
     return { state: 'ready', label: preparing ? 'Reading photo…' : 'On-device · ready' };
   })();
 
@@ -80,59 +95,48 @@ function VLModel({ t }) {
   }, [capture]);
 
   const onSend = useCallback(async () => {
-    const text = input.trim();
     const img = attachRef.current;
-    if ((!text && !img) || generating || preparing || !llm.isReady || !llm.sendMessage) return;
-    const shown = text || (img ? "What's in this photo?" : '');
+    if (!img || working || preparing || !ready) return;
     const uri = attachedUri;
-    setInput('');
     clearAttach();
-    const base = [...messages, { role: 'user', text: shown, imageUri: uri }];
+    const base = [...messages, { role: 'user', text: '', imageUri: uri }];
     setMessages([...base, { role: 'assistant', text: '', streaming: true }]);
-    setGenerating(true);
-    let acc = '';
+    setWorking(true);
+    let reply = '';
     try {
-      const content = img ? [{ kind: 'image', image: img }, shown] : shown;
-      await llm.sendMessage(content, (tok) => {
-        acc += tok;
-        setMessages([...base, { role: 'assistant', text: acc, streaming: true }]);
-      });
+      const [labels, textLines] = await Promise.all([
+        cls.classify(img).catch(() => []),
+        ocr.recognizeCharacters(img).catch(() => []),
+      ]);
+      reply = compose(labels, textLines);
     } catch (e) {
-      // The on-device vision model can reject an image on some devices
-      // (ExecuTorch "NotSupported" during prefill). Show a clean message
-      // rather than a raw error dump.
-      const raw = (e && e.message) ? e.message : String(e);
-      acc = acc || (/not ?supported/i.test(raw)
-        ? "I couldn't read that photo on this device yet — on-device vision isn't supported here. I can still help with anything in Chat."
-        : "Sorry, I couldn't read that photo. Try another one, or ask me in Chat.");
+      reply = "Sorry, I couldn’t read that photo. Try another one.";
     }
-    setMessages([...base, { role: 'assistant', text: acc, streaming: false }]);
-    setGenerating(false);
-  }, [input, generating, preparing, attachedUri, messages, llm]);
-
-  const onStop = useCallback(() => { try { llm.stop && llm.stop(); } catch (e) {} setGenerating(false); }, [llm]);
+    setMessages([...base, { role: 'assistant', text: reply, streaming: false }]);
+    setWorking(false);
+  }, [attachedUri, messages, working, preparing, ready, cls, ocr]);
 
   return (
     <ChatUI
       t={t}
       messages={messages}
-      input={input}
-      setInput={setInput}
+      input=""
+      setInput={() => {}}
       onSend={onSend}
-      onStop={onStop}
-      generating={generating}
+      onStop={() => {}}
+      generating={working}
       status={status}
       onDownload={() => {}}
-      onPickExample={(ex) => setInput(ex)}
+      onPickExample={() => {}}
       onPickImage={pickImage}
       attachedUri={attachedUri}
       onClearImage={clearAttach}
-      canSend={llm.isReady && !preparing}
+      canSend={ready && !preparing && !!attachedUri}
       title="Vision"
-      greetTitle="Ask about a photo"
-      greetSub="Add a photo and ask Aria anything about it — all on your phone, nothing uploaded."
-      placeholder="Ask about the photo"
-      examples={VISION_EXAMPLES}
+      greetTitle="Point at anything"
+      greetSub="Add a photo and Aria will tell you what’s in it and read any text — all on your phone, nothing uploaded."
+      placeholder="Add a photo to analyze"
+      examples={[]}
       download={VISION_DOWNLOAD}
     />
   );
@@ -150,8 +154,8 @@ export default function VisionNative() {
 
   const enable = () => { setEnabled(true); AsyncStorage.setItem(ENABLED_KEY, '1').catch(() => {}); };
 
-  // Only load the vision model while this tab is open, so it never coexists
-  // with the chat model (one model at a time = no out-of-memory crash).
+  // Only load the vision models while this tab is open, so they never coexist
+  // with the chat model.
   if (!onVision || !checked) {
     return (
       <ChatUI
@@ -166,7 +170,7 @@ export default function VisionNative() {
     return (
       <ChatUI
         t={t} messages={[]} input="" setInput={() => {}} onSend={() => {}} onStop={() => {}}
-        generating={false} status={{ state: 'needs-download', label: 'Vision model not downloaded' }}
+        generating={false} status={{ state: 'needs-download', label: 'Vision models not downloaded' }}
         onDownload={enable} onPickExample={() => {}} title="Vision" download={VISION_DOWNLOAD}
       />
     );
@@ -182,7 +186,7 @@ export default function VisionNative() {
 
   return (
     <Boundary fallback={fallback}>
-      <VLModel t={t} />
+      <VisionModel t={t} />
     </Boundary>
   );
 }
