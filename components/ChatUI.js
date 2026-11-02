@@ -6,6 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import Markdown from 'react-native-markdown-display';
+import { ActionsSheet, ToolsHub } from './tools';
 
 /* ── icons ─────────────────────────────────────────────────────────── */
 export const AriaMark = ({ size = 22, c = '#fff' }) => (
@@ -56,6 +57,8 @@ export default function ChatUI({
   const scrollRef = useRef(null);
   const [drawer, setDrawer] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [tool, setTool] = useState(null);
 
   useEffect(() => {
     const id = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
@@ -197,7 +200,7 @@ export default function ChatUI({
       <View style={[s.inputBar, { paddingBottom: insets.bottom ? insets.bottom : 10 }]}>
         <View style={s.inputPill}>
           {onPickImage ? (
-            <Pressable onPress={onPickImage} disabled={!ready || generating} style={({ pressed }) => [s.plusBtn, { opacity: ready && !generating ? 1 : 0.35 }, pressed && { opacity: 0.4 }]}><PlusIcon c={t.label} s={23} /></Pressable>
+            <Pressable onPress={() => setActionsOpen(true)} disabled={generating} style={({ pressed }) => [s.plusBtn, { opacity: generating ? 0.35 : 1 }, pressed && { opacity: 0.4 }]}><PlusIcon c={t.label} s={23} /></Pressable>
           ) : <View style={{ width: 6 }} />}
           <TextInput
             style={s.input}
@@ -246,6 +249,16 @@ export default function ChatUI({
       </Modal>
 
       {copied ? (<View style={[s.copied, { bottom: insets.bottom + 86 }]} pointerEvents="none"><Text style={s.copiedTxt}>Copied</Text></View>) : null}
+
+      <ActionsSheet
+        t={t}
+        visible={actionsOpen}
+        onClose={() => setActionsOpen(false)}
+        onPhoto={onPickImage}
+        onTool={(id) => setTool(id)}
+        onWriting={(v) => onPickExample && onPickExample(v)}
+      />
+      <ToolsHub t={t} toolId={tool} onClose={() => setTool(null)} />
     </KeyboardAvoidingView>
   );
 }
