@@ -5,46 +5,36 @@ macOS runner (`eas build --local` + `eas submit`), mirroring the other apps
 (see the `github-actions-ios-builds` memory). A brand-new app needs **one
 interactive setup** by you before GitHub can build it.
 
-## What's already done
+## Already done (by Claude, 2026-11-01)
 - Full app: Chat (Qwen3-1.7B on iPhone / Qwen3-0.6B on iPad) + Vision (LFM2.5-VL-450M), both on-device.
 - `app.json` (bundle `com.solyapps.aria`, increased-memory-limit entitlement, iOS 17 target).
 - `eas.json`, `.github/workflows/ios-testflight.yml`, `scripts/check-sdk.cjs`.
-- Verified: web UI renders, `npx expo export --platform ios` exits 0.
+- Verified: web UI renders, `npx expo export --platform ios` exits 0, lock in sync.
+- **EAS project created**: `@solomonsasson/aria`, projectId `97e7ddaf-b7ee-42ae-a873-e2ad7450733c`
+  (in `app.json`). EAS Update configured (`updates.url`, `production` channel/branch, buildNumber 1).
+- **GitHub repo created + pushed**: PUBLIC `theprojectmaker/aria-ios`, workflow active.
 
-## One-time setup (you / interactive)
-1. **Create the EAS project** (from `tests/aria`):
-   ```
-   npx eas-cli@latest init
-   ```
-   This writes `extra.eas.projectId` + the `updates.url` into `app.json`. Owner: `solomonsasson`.
+## What's left — needs YOUR logins (I can't do these)
+These two require your Apple ID (with 2FA) and your Expo token, which I can't enter.
 
-2. **Create a GitHub repo and push** (PUBLIC — private-repo macOS builds are currently blocked
-   on the account per the `github-actions-ios-builds` memory):
-   ```
-   "C:/Program Files/GitHub CLI/gh.exe" repo create theprojectmaker/aria-ios --public --source . --remote origin --push
-   ```
+### Fastest path — one interactive command does it all
+From `tests/aria`, in your own terminal:
+```
+npx eas-cli@latest build --platform ios --profile production --auto-submit
+```
+Log in to Apple when prompted (2FA). This creates the signing credentials (accept the
+**Increased Memory Limit** capability), builds Aria in the EAS cloud, and submits it to
+TestFlight — creating the App Store Connect app. After it finishes, copy the new `ascAppId`
+it reports into `eas.json` (`submit.production.ios.ascAppId`, currently `REPLACE_WITH_ASC_APP_ID`),
+then commit + push.
 
-3. **Set the EXPO_TOKEN secret** on the repo (expo.dev → Account settings → Access tokens),
-   same as the other apps' set-expo-token script.
-
-4. **Create iOS credentials** (no build minutes used):
-   ```
-   npx eas-cli@latest credentials
-   ```
-   Pick iOS → production → let it create the Distribution Certificate + Provisioning Profile
-   (the profile must include the **Increased Memory Limit** capability — accept when prompted,
-   since `app.json` declares the entitlement). Log in with the Apple ID when asked.
-
-5. **First build (no submit) to confirm green on GitHub:**
-   ```
-   "C:/Program Files/GitHub CLI/gh.exe" workflow run ios-testflight.yml -R theprojectmaker/aria-ios -f submit=false
-   ```
-
-6. **Create the App Store Connect app** with one interactive submit of that build, then copy the
-   `ascAppId` into `eas.json` (`submit.production.ios.ascAppId`, currently `REPLACE_WITH_ASC_APP_ID`):
-   ```
-   npx eas-cli@latest submit --platform ios --profile production --latest
-   ```
+### To use the FREE GitHub builds afterward
+Set the Expo token secret once (run in PowerShell, paste your token):
+```
+powershell -ExecutionPolicy Bypass -File tests/set-expo-token-aria.ps1
+```
+Make a token at https://expo.dev/accounts/solomonsasson/settings/access-tokens.
+After that, every build is free on GitHub:
 
 ## Every build after that
 ```
