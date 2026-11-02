@@ -11,7 +11,7 @@ const VISION_EXAMPLES = [
 
 const DEMO_IMG =
   'data:image/svg+xml;utf8,' + encodeURIComponent(
-    "<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#5E5CE6'/><stop offset='1' stop-color='#AF52DE'/></linearGradient></defs><rect width='160' height='160' fill='url(#g)'/><circle cx='56' cy='54' r='20' fill='#fff' opacity='0.95'/><path d='M14 150 L64 92 L96 128 L118 104 L150 150 Z' fill='#fff' opacity='0.9'/></svg>");
+    "<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><rect width='160' height='160' fill='#BFE3D8'/><rect y='104' width='160' height='56' fill='#7FBBA6'/><circle cx='120' cy='40' r='18' fill='#F4EDE4'/><path d='M0 120 L48 80 L84 112 L116 86 L160 120 L160 160 L0 160 Z' fill='#0E7C6B'/></svg>");
 
 const DEMO_REPLY =
   "This is a **preview** of Aria Vision. On your phone, the on-device vision model actually *looks* at the photo you add and answers questions about it — fully offline, nothing uploaded.\n\nHere I'd describe a sunlit landscape with a bright circle (a sun) above rolling hills.";

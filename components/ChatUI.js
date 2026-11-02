@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator, Image, Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import Markdown from 'react-native-markdown-display';
 
 const DEFAULT_EXAMPLES = [
@@ -15,18 +15,10 @@ const DEFAULT_EXAMPLES = [
 ];
 
 /* ── icons ─────────────────────────────────────────────────────────── */
-export const Sparkle = ({ size = 22, c = '#fff', c2 }) => (
+// The Aria "A" monogram — matches the app icon.
+export const AriaMark = ({ size = 22, c = '#fff' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
-    {c2 ? (
-      <Defs>
-        <LinearGradient id="spk" x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor={c} />
-          <Stop offset="1" stopColor={c2} />
-        </LinearGradient>
-      </Defs>
-    ) : null}
-    <Path d="M12 2c.4 4.6 2.4 6.6 7 7-4.6.4-6.6 2.4-7 7-.4-4.6-2.4-6.6-7-7 4.6-.4 6.6-2.4 7-7Z" fill={c2 ? 'url(#spk)' : c} />
-    <Path d="M19 3c.2 1.8 1 2.6 2.8 2.8-1.8.2-2.6 1-2.8 2.8-.2-1.8-1-2.6-2.8-2.8C18 5.6 18.8 4.8 19 3Z" fill={c2 ? 'url(#spk)' : c} opacity={0.9} />
+    <Path d="M12 6.4 L7.3 17.9 M12 6.4 L16.7 17.9 M8.73 14.4 L15.27 14.4" fill="none" stroke={c} strokeWidth={2.35} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 const SendArrow = ({ c }) => <Svg width={20} height={20} viewBox="0 0 20 20"><Path d="M10 16V5M10 5l-5 5M10 5l5 5" fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" /></Svg>;
@@ -103,7 +95,7 @@ export default function ChatUI({
         {status.state === 'needs-download' && (
           <View style={{ flex: 1, justifyContent: 'center' }}>
             <View style={s.setup}>
-              <View style={s.setupGlyph}><Sparkle size={30} c={t.onAccent} /></View>
+              <View style={s.setupGlyph}><AriaMark size={28} c={t.onAccent} /></View>
               <Text style={s.setupTitle}>{download.title || 'Set up on-device AI'}</Text>
               <Text style={s.setupBody}>{download.body || 'Download the AI model once so it can run right on your phone. It needs the internet this one time — Wi-Fi is best. After that, it works fully offline.'}</Text>
               <View style={s.privacyRow}><LockIcon c={t.label2} /><Text style={s.privacyTxt}>{download.sizeNote || 'About 1.2 GB · stored on your device'}</Text></View>
@@ -114,7 +106,7 @@ export default function ChatUI({
         {status.state === 'downloading' && (
           <View style={{ flex: 1, justifyContent: 'center' }}>
             <View style={s.setup}>
-              <View style={s.setupGlyph}><Sparkle size={30} c={t.onAccent} /></View>
+              <View style={s.setupGlyph}><AriaMark size={28} c={t.onAccent} /></View>
               <Text style={s.setupTitle}>Downloading model…</Text>
               <View style={s.progressTrack}><View style={[s.progressFill, { backgroundColor: t.accent, width: `${Math.round((status.progress || 0) * 100)}%` }]} /></View>
               <Text style={s.setupBody}>{Math.round((status.progress || 0) * 100)}% — keep Aria open</Text>
@@ -125,7 +117,7 @@ export default function ChatUI({
         {status.state === 'unavailable' && (
           <View style={{ flex: 1, justifyContent: 'center' }}>
             <View style={s.setup}>
-              <View style={[s.setupGlyph, { backgroundColor: t.fill }]}><Sparkle size={28} c={t.label2} /></View>
+              <View style={[s.setupGlyph, { backgroundColor: t.fill }]}><AriaMark size={26} c={t.label2} /></View>
               <Text style={s.setupTitle}>Runs in the installed app</Text>
               <Text style={s.setupBody}>Aria’s on-device AI runs in the real app from the App Store. This is a preview of the interface.</Text>
             </View>
@@ -134,7 +126,7 @@ export default function ChatUI({
 
         {ready && empty && (
           <View style={{ flex: 1, justifyContent: 'center' }}>
-            <View style={s.heroGlyph}><Sparkle size={34} c={t.accent} c2={t.accent2} /></View>
+            <View style={s.heroGlyph}><AriaMark size={30} c={t.accent} /></View>
             <Text style={s.greet}>{greetTitle}</Text>
             <Text style={s.greetSub}>{sub}</Text>
             <View style={{ marginTop: 20, gap: 9 }}>
@@ -144,16 +136,19 @@ export default function ChatUI({
         )}
 
         {messages.map((m, i) => (
-          <Pressable key={i} onLongPress={() => m.text && copy(m.text)} style={[s.msgRow, { justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }]}>
-            <View style={[s.bubble, m.role === 'user' ? { backgroundColor: t.bubbleUser, borderBottomRightRadius: 5 } : { backgroundColor: t.bubbleAI, borderBottomLeftRadius: 5, borderWidth: t.dark ? 0 : StyleSheet.hairlineWidth, borderColor: t.sep }]}>
+          m.role === 'user' ? (
+            <Pressable key={i} onLongPress={() => m.text && copy(m.text)} style={[s.msgRow, { justifyContent: 'flex-end' }]}>
+              <View style={s.userBubble}>
+                {m.imageUri ? <Image source={{ uri: m.imageUri }} style={s.msgImage} resizeMode="cover" /> : null}
+                {m.text ? <Text style={s.userTxt}>{m.text}</Text> : null}
+              </View>
+            </Pressable>
+          ) : (
+            <Pressable key={i} onLongPress={() => m.text && copy(m.text)} style={s.aiRow}>
               {m.imageUri ? <Image source={{ uri: m.imageUri }} style={s.msgImage} resizeMode="cover" /> : null}
-              {m.text ? (
-                m.role === 'user'
-                  ? <Text style={[s.bubbleTxt, { color: t.onAccent }]}>{m.text}</Text>
-                  : <Markdown style={mdStyles(t)}>{m.text}</Markdown>
-              ) : null}
-            </View>
-          </Pressable>
+              {m.text ? <Markdown style={mdStyles(t)}>{m.text}</Markdown> : null}
+            </Pressable>
+          )
         ))}
         {generating && (<View style={s.thinkingRow}><ActivityIndicator size="small" color={t.label3} /><Text style={s.thinking}>Thinking…</Text></View>)}
       </ScrollView>
@@ -249,16 +244,17 @@ function styles(t) {
     progressTrack: { height: 8, borderRadius: 4, backgroundColor: t.fill, width: '100%', marginTop: 16, overflow: 'hidden' },
     progressFill: { height: 8, borderRadius: 4 },
 
-    heroGlyph: { width: 72, height: 72, borderRadius: 24, backgroundColor: t.dark ? 'rgba(125,122,255,0.14)' : 'rgba(94,92,230,0.1)', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
-    greet: { color: t.label, fontSize: 28, fontWeight: '700', textAlign: 'center', letterSpacing: -0.5 },
+    heroGlyph: { width: 60, height: 60, borderRadius: 18, backgroundColor: t.dark ? 'rgba(53,185,164,0.16)' : 'rgba(14,124,107,0.1)', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
+    greet: { color: t.label, fontSize: 27, fontWeight: '700', textAlign: 'center', letterSpacing: -0.5 },
     greetSub: { color: t.label2, fontSize: 15, lineHeight: 21, textAlign: 'center', marginTop: 6, paddingHorizontal: 18 },
-    example: { backgroundColor: t.card, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 15, borderWidth: t.dark ? 0 : StyleSheet.hairlineWidth, borderColor: t.sep },
+    example: { backgroundColor: t.card, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 15, borderWidth: StyleSheet.hairlineWidth, borderColor: t.sep },
     exampleTxt: { color: t.label, fontSize: 14.5 },
 
-    msgRow: { flexDirection: 'row', marginVertical: 5 },
-    bubble: { maxWidth: '86%', borderRadius: 20, paddingVertical: 9, paddingHorizontal: 14 },
-    bubbleTxt: { fontSize: 16, lineHeight: 22 },
-    msgImage: { width: 190, height: 190, borderRadius: 14, marginVertical: 5 },
+    msgRow: { flexDirection: 'row', marginVertical: 6 },
+    userBubble: { maxWidth: '82%', borderRadius: 20, borderBottomRightRadius: 6, paddingVertical: 9, paddingHorizontal: 15, backgroundColor: t.bubbleUser },
+    userTxt: { fontSize: 16, lineHeight: 22, color: t.label },
+    aiRow: { marginVertical: 8, paddingHorizontal: 2 },
+    msgImage: { width: 200, height: 200, borderRadius: 14, marginVertical: 5 },
     thinkingRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8, marginLeft: 4 },
     thinking: { color: t.label3, fontSize: 13 },
 

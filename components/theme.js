@@ -1,25 +1,24 @@
 import { useColorScheme } from 'react-native';
 import { useMemo } from 'react';
 
-/* Apple system palette, plus Aria's signature accent (systemIndigo → a soft violet).
-   The accent is used for primary actions (send, active tab, progress) so the app reads
-   as its own product while staying native-feeling; `blue` stays available for anything
-   that should look like a stock iOS control. */
+/* Flat, restrained palette in the spirit of the ChatGPT / Claude iOS apps:
+   one calm background, warm neutral surfaces, and a single jade accent used
+   sparingly (send button, links, the brand mark). No gradients. */
 export function useTheme() {
   const dark = useColorScheme() === 'dark';
   return useMemo(() => dark ? {
     dark: true,
-    bg: '#000000', card: '#1C1C1E', fill: '#2C2C2E', sep: '#38383A',
-    label: '#FFFFFF', label2: '#98989F', label3: '#636366',
-    blue: '#0A84FF', green: '#30D158', red: '#FF453B', onBlue: '#FFFFFF',
-    accent: '#7D7AFF', accent2: '#BF5AF2', onAccent: '#FFFFFF',
-    bubbleUser: '#7D7AFF', bubbleAI: '#1C1C1E',
+    bg: '#17170F', card: '#201F1A', fill: '#2B2A24', sep: '#38362E',
+    label: '#F3F1EA', label2: '#9E9C92', label3: '#67655C',
+    blue: '#35B9A4', green: '#34D07A', red: '#FF5247', onBlue: '#07130F',
+    accent: '#35B9A4', accent2: '#35B9A4', onAccent: '#06120E',
+    bubbleUser: '#2B2A24', bubbleAI: '#17170F',
   } : {
     dark: false,
-    bg: '#F2F2F7', card: '#FFFFFF', fill: '#ECECEF', sep: '#E5E5EA',
-    label: '#1C1C1E', label2: '#8E8E93', label3: '#C7C7CC',
-    blue: '#007AFF', green: '#34C759', red: '#FF3B30', onBlue: '#FFFFFF',
-    accent: '#5E5CE6', accent2: '#AF52DE', onAccent: '#FFFFFF',
-    bubbleUser: '#5E5CE6', bubbleAI: '#FFFFFF',
+    bg: '#F7F6F2', card: '#FFFFFF', fill: '#ECEAE3', sep: '#E6E3DA',
+    label: '#1A1A16', label2: '#6E6C64', label3: '#AEABA1',
+    blue: '#0E7C6B', green: '#2BA86A', red: '#D1453B', onBlue: '#FFFFFF',
+    accent: '#0E7C6B', accent2: '#0E7C6B', onAccent: '#FFFFFF',
+    bubbleUser: '#ECE9E1', bubbleAI: '#F7F6F2',
   }, [dark]);
 }

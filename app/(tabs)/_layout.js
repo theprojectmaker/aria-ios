@@ -9,7 +9,6 @@ function ChatIcon({ color, focused }) {
         d="M5 4.5h14A2.5 2.5 0 0 1 21.5 7v8A2.5 2.5 0 0 1 19 17.5h-7l-4.6 3.6A.7.7 0 0 1 6.3 20.5V17.5H5A2.5 2.5 0 0 1 2.5 15V7A2.5 2.5 0 0 1 5 4.5Z"
         fill={focused ? color : 'none'} stroke={color} strokeWidth={1.9} strokeLinejoin="round"
       />
-      <Path d="M12 7.3c.25 2.3 1.2 3.25 3.5 3.5-2.3.25-3.25 1.2-3.5 3.5-.25-2.3-1.2-3.25-3.5-3.5 2.3-.25 3.25-1.2 3.5-3.5Z" fill={focused ? '#fff' : color} />
     </Svg>
   );
 }
@@ -29,11 +28,11 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: dark ? '#7D7AFF' : '#5E5CE6',
-        tabBarInactiveTintColor: dark ? '#98989F' : '#8E8E93',
+        tabBarActiveTintColor: dark ? '#35B9A4' : '#0E7C6B',
+        tabBarInactiveTintColor: dark ? '#9E9C92' : '#8E8C84',
         tabBarStyle: {
-          backgroundColor: dark ? '#1C1C1E' : '#FFFFFF',
-          borderTopColor: dark ? '#38383A' : '#E5E5EA',
+          backgroundColor: dark ? '#201F1A' : '#FFFFFF',
+          borderTopColor: dark ? '#38362E' : '#E6E3DA',
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}

@@ -11,7 +11,7 @@ export default function Layout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: dark ? '#000000' : '#F2F2F7' },
+          contentStyle: { backgroundColor: dark ? '#17170F' : '#F7F6F2' },
         }}
       />
     </SafeAreaProvider>
