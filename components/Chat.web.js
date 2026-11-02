@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import ChatUI from './ChatUI';
 import { useTheme } from './theme';
 import { newChat, titleFrom } from './chatStore';
@@ -21,6 +21,22 @@ export default function ChatWeb() {
   const [generating, setGenerating] = useState(false);
   const [attachedUri, setAttachedUri] = useState(null);
   const timer = useRef(null);
+
+  // Demo the first-run setup flow (download → load → ready) so the preview shows it.
+  const [sim, setSim] = useState({ state: 'downloading', progress: 0, label: 'Downloading 0%' });
+  useEffect(() => {
+    let p = 0;
+    const dl = setInterval(() => {
+      p = Math.min(1, p + 0.045);
+      setSim({ state: 'downloading', progress: p, label: `Downloading ${Math.round(p * 100)}%` });
+      if (p >= 1) {
+        clearInterval(dl);
+        setSim({ state: 'loading', label: 'Getting ready…' });
+        setTimeout(() => setSim({ state: 'ready', label: 'Preview (demo)' }), 2600);
+      }
+    }, 150);
+    return () => clearInterval(dl);
+  }, []);
 
   const id = activeId || chats[0].id;
   const active = chats.find((c) => c.id === id) || chats[0];
@@ -62,7 +78,7 @@ export default function ChatWeb() {
       onSend={onSend}
       onStop={() => { clearInterval(timer.current); setGenerating(false); }}
       generating={generating}
-      status={{ state: 'ready', label: 'Preview (demo)' }}
+      status={sim}
       onDownload={() => {}}
       onPickExample={(ex) => setInput(ex)}
       onPickImage={() => setAttachedUri(DEMO_IMG)}

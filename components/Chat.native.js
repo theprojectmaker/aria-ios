@@ -31,29 +31,43 @@ function cleanThink(str) {
 class Boundary extends React.Component {
   state = { err: false };
   static getDerivedStateFromError() { return { err: true }; }
-  componentDidCatch() {}
+  componentDidCatch() { if (this.props.onError) this.props.onError(); }
   render() { return this.state.err ? this.props.fallback : this.props.children; }
 }
 
 /* The chat model loads ONCE and stays resident. Photos are handled by a small,
    lazily-mounted vision engine (classifier + OCR) that coexists with it. */
-function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat, onOpenChat, onDeleteChat }) {
+function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat, onOpenChat, onDeleteChat, startSafe }) {
   const { models, useLLMChatSession } = require('react-native-executorch');
-  const smallLLM = models.llm.QWEN3_0_6B && (models.llm.QWEN3_0_6B.DEFAULT || models.llm.QWEN3_0_6B.XNNPACK_8DA4W);
-  const MODEL = (Platform.OS === 'ios' && Platform.isPad && smallLLM) ? smallLLM : models.llm.QWEN3_1_7B.DEFAULT;
+  const small = (models.llm.QWEN3_0_6B && (models.llm.QWEN3_0_6B.DEFAULT || models.llm.QWEN3_0_6B.XNNPACK_8DA4W)) || models.llm.QWEN3_1_7B.DEFAULT;
+  const mid = (models.llm.LFM2_5_1_2B && models.llm.LFM2_5_1_2B.DEFAULT) || small;
+  const big = models.llm.QWEN3_1_7B.DEFAULT;
+  // iPads have less usable RAM; start small there. Elsewhere try big, then fall
+  // back automatically if the device can't load it (OOM shows as llm.error).
+  const CHAIN = (Platform.OS === 'ios' && Platform.isPad) ? [small] : [big, mid, small];
+  const [tier, setTier] = useState(startSafe ? CHAIN.length - 1 : 0);
+  const MODEL = CHAIN[Math.min(tier, CHAIN.length - 1)];
   const llm = useLLMChatSession(MODEL, {
     initialMessages: [{ role: 'system', content: SYSTEM_PROMPT }],
     generationConfig: { maxNewTokens: 512, temperature: 0.7 },
   });
+
+  // If a model fails to load, drop to a smaller one and remember to start there next time.
+  useEffect(() => {
+    if (llm.error && tier < CHAIN.length - 1) {
+      setTier((x) => x + 1);
+      AsyncStorage.setItem('aria.model.safe.v1', '1').catch(() => {});
+    }
+  }, [llm.error]);
 
   const [messages, setMessages] = useState(active.messages || []);
   const [input, setInput] = useState('');
   const [generating, setGenerating] = useState(false);
   const [attachedUri, setAttachedUri] = useState(null);
   const [preparing, setPreparing] = useState(false);
-  const [visionArmed, setVisionArmed] = useState(false);
   const [visionStatus, setVisionStatus] = useState(null);
   const [visionReady, setVisionReady] = useState(false);
+  const [visionFailed, setVisionFailed] = useState(false);
   const attachRef = useRef(null);
   const analyzeRef = useRef(null);
 
@@ -62,9 +76,11 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   const commit = (next) => { setMessages(next); persistMessages(next); };
   function clearAttach() { attachRef.current = null; setAttachedUri(null); }
 
+  const atLast = tier >= CHAIN.length - 1;
   const status = (() => {
-    if (llm.error) return { state: 'unavailable', label: 'Could not load model' };
-    if (!llm.isReady && (llm.downloadProgress || 0) < 1) return { state: 'downloading', progress: llm.downloadProgress || 0, label: `Downloading ${Math.round((llm.downloadProgress || 0) * 100)}%` };
+    if (llm.error && atLast) return { state: 'unavailable', label: 'Could not load model' };
+    if (llm.error) return { state: 'loading', label: 'Trying a lighter model…' };
+    if (!llm.isReady && (llm.downloadProgress || 0) < 1) return { state: 'downloading', progress: llm.downloadProgress || 0, label: `${tier > 0 ? 'Lighter model ' : 'Downloading '}${Math.round((llm.downloadProgress || 0) * 100)}%` };
     if (!llm.isReady) return { state: 'loading', label: 'Getting ready…' };
     if (preparing) return { state: 'ready', label: 'Reading photo…' };
     if (attachedUri && visionStatus && visionStatus.state === 'downloading') return { state: 'ready', label: `Preparing vision ${Math.round((visionStatus.progress || 0) * 100)}%` };
@@ -81,7 +97,6 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
         : await IP.launchImageLibraryAsync({ mediaTypes: (IP.MediaTypeOptions && IP.MediaTypeOptions.Images) || 'images', quality: 1 });
       if (res.canceled || !res.assets || !res.assets[0]) return;
       const uri = res.assets[0].uri;
-      setVisionArmed(true);
       setAttachedUri(uri);
       setPreparing(true);
       const { uriToImageBuffer } = require('./imageBuffer');
@@ -104,7 +119,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
 
     // Photo → on-device vision (classify + read text).
     if (img) {
-      if (!visionReady || !analyzeRef.current) return; // send stays disabled until ready
+      if (!visionFailed && (!visionReady || !analyzeRef.current)) return; // wait until ready
       const uri = attachedUri;
       setInput('');
       clearAttach();
@@ -112,8 +127,12 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
       commit([...base, { role: 'assistant', text: '', streaming: true }]);
       setGenerating(true);
       let reply = '';
-      try { reply = await analyzeRef.current(img); }
-      catch (e) { reply = 'Sorry, I couldn’t read that photo. Try another one.'; }
+      if (visionFailed || !analyzeRef.current) {
+        reply = "I couldn’t start the photo reader on this device. Chat still works — ask me anything.";
+      } else {
+        try { reply = await analyzeRef.current(img); }
+        catch (e) { reply = 'Sorry, I couldn’t read that photo. Try another one.'; }
+      }
       commit([...base, { role: 'assistant', text: reply, streaming: false }]);
       setGenerating(false);
       return;
@@ -136,20 +155,22 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     }
     commit([...base, { role: 'assistant', text: cleanThink(acc) || acc, streaming: false }]);
     setGenerating(false);
-  }, [input, generating, preparing, attachedUri, visionReady, messages, llm]);
+  }, [input, generating, preparing, attachedUri, visionReady, visionFailed, messages, llm]);
 
   const onStop = useCallback(() => { try { llm.stop && llm.stop(); } catch (e) {} setGenerating(false); }, [llm]);
 
-  const canSend = llm.isReady && !preparing && (attachRef.current ? visionReady : true);
+  const canSend = llm.isReady && !preparing && (attachRef.current ? (visionReady || visionFailed) : true);
 
   return (
     <>
-      {visionArmed && (
+      {/* Vision loads eagerly, alongside the chat model, in its own error
+          boundary so a vision failure can never take down the chat. */}
+      <Boundary fallback={null} onError={() => setVisionFailed(true)}>
         <VisionEngine
           onStatus={setVisionStatus}
           onReady={(fn) => { analyzeRef.current = fn; setVisionReady(true); }}
         />
-      )}
+      </Boundary>
       <ChatUI
         t={t}
         messages={messages}
@@ -177,7 +198,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   );
 }
 
-function ChatsManager({ t }) {
+function ChatsManager({ t, safe }) {
   const [chats, setChats] = useState(null);
   const [activeId, setActiveId] = useState(null);
   const chatsRef = useRef([]);
@@ -220,7 +241,7 @@ function ChatsManager({ t }) {
   return (
     <ModelChat
       t={t} active={active} activeChatId={activeId} chats={chats}
-      persistMessages={persistMessages}
+      persistMessages={persistMessages} startSafe={safe}
       onNewChat={onNewChat} onOpenChat={onOpenChat} onDeleteChat={onDeleteChat}
     />
   );
@@ -230,9 +251,12 @@ export default function ChatNative() {
   const t = useTheme();
   const [enabled, setEnabled] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [safe, setSafe] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(ENABLED_KEY).then((v) => { if (v === '1') setEnabled(true); setChecked(true); });
+    Promise.all([AsyncStorage.getItem(ENABLED_KEY), AsyncStorage.getItem('aria.model.safe.v1')])
+      .then(([en, sf]) => { if (en === '1') setEnabled(true); if (sf === '1') setSafe(true); setChecked(true); })
+      .catch(() => setChecked(true));
   }, []);
 
   const enable = () => { setEnabled(true); AsyncStorage.setItem(ENABLED_KEY, '1').catch(() => {}); };
@@ -259,7 +283,7 @@ export default function ChatNative() {
 
   return (
     <Boundary fallback={fallback}>
-      <ChatsManager t={t} />
+      <ChatsManager t={t} safe={safe} />
     </Boundary>
   );
 }

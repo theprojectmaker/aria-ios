@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TextInput, Pressable, StyleSheet,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Image, Modal,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Image, Modal, Animated, Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -43,6 +43,50 @@ function timeAgo(ts) {
   return Math.round(h / 24) + 'd ago';
 }
 
+function fmtEta(sec) {
+  if (!isFinite(sec) || sec <= 0) return '';
+  if (sec < 8) return 'a few seconds left';
+  if (sec < 90) return `about ${Math.round(sec / 5) * 5}s left`;
+  const m = Math.round(sec / 60);
+  return `about ${m} min left`;
+}
+function fmtElapsed(sec) {
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+// Circular progress ring — shows % while downloading, spins while loading.
+function Ring({ t, progress, indeterminate, size = 136, stroke = 9 }) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const spin = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!indeterminate) return;
+    const anim = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 1100, easing: Easing.linear, useNativeDriver: true }));
+    anim.start();
+    return () => anim.stop();
+  }, [indeterminate]);
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const pct = indeterminate ? 0.28 : Math.max(0.02, Math.min(1, progress || 0));
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+      <Animated.View style={indeterminate ? { transform: [{ rotate }] } : null}>
+        <Svg width={size} height={size}>
+          <Circle cx={size / 2} cy={size / 2} r={r} stroke={t.fill} strokeWidth={stroke} fill="none" />
+          <Circle cx={size / 2} cy={size / 2} r={r} stroke={t.accent} strokeWidth={stroke} fill="none"
+            strokeLinecap="round" strokeDasharray={`${circ}`} strokeDashoffset={circ * (1 - pct)}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+        </Svg>
+      </Animated.View>
+      <View style={{ position: 'absolute', alignItems: 'center' }}>
+        {indeterminate
+          ? <AriaMark size={34} c={t.label} />
+          : <Text style={{ color: t.label, fontSize: 30, fontWeight: '700', letterSpacing: -0.5 }}>{Math.round((progress || 0) * 100)}%</Text>}
+      </View>
+    </View>
+  );
+}
+
 export default function ChatUI({
   t, messages, input, setInput, onSend, onStop, generating,
   status, onDownload, banner,
@@ -59,6 +103,42 @@ export default function ChatUI({
   const [copied, setCopied] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [tool, setTool] = useState(null);
+  const [eta, setEta] = useState('');
+  const [elapsed, setElapsed] = useState(0);
+  const [readyToast, setReadyToast] = useState(false);
+  const dlRef = useRef({ t0: 0, p0: 0 });
+  const prevStateRef = useRef(status.state);
+
+  // Download ETA from the overall rate since the download started.
+  useEffect(() => {
+    if (status.state === 'downloading') {
+      const p = status.progress || 0;
+      const now = Date.now();
+      if (!dlRef.current.t0 || p < dlRef.current.p0) dlRef.current = { t0: now, p0: p };
+      const dt = (now - dlRef.current.t0) / 1000;
+      const dp = p - dlRef.current.p0;
+      if (dt > 2 && dp > 0.01) setEta(fmtEta(((1 - p) / dp) * dt));
+    } else { dlRef.current = { t0: 0, p0: 0 }; if (eta) setEta(''); }
+  }, [status.state, status.progress]);
+
+  // Elapsed timer during the (progress-less) load-into-memory phase.
+  useEffect(() => {
+    if (status.state !== 'loading') { setElapsed(0); return; }
+    setElapsed(0);
+    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [status.state]);
+
+  // Live "ready" banner when the model finishes loading.
+  useEffect(() => {
+    const was = prevStateRef.current;
+    prevStateRef.current = status.state;
+    if (status.state === 'ready' && (was === 'loading' || was === 'downloading')) {
+      setReadyToast(true);
+      const id = setTimeout(() => setReadyToast(false), 4200);
+      return () => clearTimeout(id);
+    }
+  }, [status.state]);
 
   useEffect(() => {
     const id = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
@@ -105,25 +185,35 @@ export default function ChatUI({
         {(status.state === 'needs-download' || status.state === 'downloading' || status.state === 'loading' || status.state === 'unavailable') && (
           <View style={{ flex: 1, justifyContent: 'center', paddingVertical: 24 }}>
             <View style={s.setup}>
-              <View style={[s.setupGlyph, status.state === 'unavailable' && { backgroundColor: t.fill }]}>
-                <AriaMark size={26} c={status.state === 'unavailable' ? t.label2 : t.onAccent} />
-              </View>
               {status.state === 'needs-download' && (<>
+                <View style={s.setupGlyph}><AriaMark size={26} c={t.onAccent} /></View>
                 <Text style={s.setupTitle}>{download.title || 'Set up Aria'}</Text>
                 <Text style={s.setupBody}>{download.body || 'Download the AI once so Aria can run right on your phone. It needs the internet this one time — after that it works completely offline.'}</Text>
                 <Text style={s.setupNote}>{download.sizeNote || 'One-time download · stays on your device'}</Text>
                 <Pressable onPress={onDownload} style={({ pressed }) => [s.primaryBtn, pressed && { opacity: 0.8 }]}><Text style={s.primaryBtnTxt}>Download</Text></Pressable>
               </>)}
               {status.state === 'downloading' && (<>
-                <Text style={s.setupTitle}>Downloading…</Text>
-                <View style={s.progressTrack}><View style={[s.progressFill, { width: `${Math.round((status.progress || 0) * 100)}%` }]} /></View>
-                <Text style={s.setupNote}>{Math.round((status.progress || 0) * 100)}% · you can keep using your phone</Text>
+                <Ring t={t} progress={status.progress || 0} />
+                <Text style={s.setupTitle}>Downloading Aria</Text>
+                <Text style={s.setupBody}>{eta || 'Starting the download…'}</Text>
+                <View style={s.stepsRow}>
+                  <View style={[s.stepDot, { backgroundColor: t.accent }]} />
+                  <View style={[s.stepDot, { backgroundColor: t.fill }]} />
+                </View>
+                <Text style={s.setupNote}>Keep Aria open — it’ll work offline once this is done.</Text>
               </>)}
               {status.state === 'loading' && (<>
-                <ActivityIndicator color={t.label2} style={{ marginTop: 4 }} />
-                <Text style={[s.setupBody, { marginTop: 14 }]}>Getting things ready…</Text>
+                <Ring t={t} indeterminate />
+                <Text style={s.setupTitle}>Getting Aria ready</Text>
+                <Text style={s.setupBody}>Loading the model into memory{elapsed > 3 ? ` · ${fmtElapsed(elapsed)}` : ''}</Text>
+                <View style={s.stepsRow}>
+                  <View style={[s.stepDot, { backgroundColor: t.accent }]} />
+                  <View style={[s.stepDot, { backgroundColor: t.accent }]} />
+                </View>
+                <Text style={s.setupNote}>This can take up to a minute the first time.</Text>
               </>)}
               {status.state === 'unavailable' && (<>
+                <View style={[s.setupGlyph, { backgroundColor: t.fill }]}><AriaMark size={26} c={t.label2} /></View>
                 <Text style={s.setupTitle}>Runs in the installed app</Text>
                 <Text style={s.setupBody}>Aria’s on-device AI runs in the real app. This is a preview of the interface.</Text>
               </>)}
@@ -249,6 +339,12 @@ export default function ChatUI({
       </Modal>
 
       {copied ? (<View style={[s.copied, { bottom: insets.bottom + 86 }]} pointerEvents="none"><Text style={s.copiedTxt}>Copied</Text></View>) : null}
+      {readyToast ? (
+        <View style={[s.readyToast, { top: insets.top + 52 }]} pointerEvents="none">
+          <View style={s.readyDot} />
+          <Text style={s.readyToastTxt}>Aria is ready</Text>
+        </View>
+      ) : null}
 
       <ActionsSheet
         t={t}
@@ -300,6 +396,8 @@ function styles(t) {
     primaryBtnTxt: { color: t.onAccent, fontSize: 16, fontWeight: '600' },
     progressTrack: { height: 6, borderRadius: 3, backgroundColor: t.fill, width: '100%', marginTop: 18, overflow: 'hidden' },
     progressFill: { height: 6, borderRadius: 3, backgroundColor: t.accent },
+    stepsRow: { flexDirection: 'row', gap: 7, marginTop: 16 },
+    stepDot: { width: 22, height: 5, borderRadius: 3 },
 
     heroMark: { width: 56, height: 56, borderRadius: 16, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 20 },
     greet: { color: t.label, fontSize: 32, fontWeight: '700', textAlign: 'center', letterSpacing: -0.8 },
@@ -344,5 +442,8 @@ function styles(t) {
 
     copied: { position: 'absolute', alignSelf: 'center', backgroundColor: t.dark ? '#2C2C2E' : '#1D1D1F', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12 },
     copiedTxt: { color: '#fff', fontSize: 13.5, fontWeight: '500' },
+    readyToast: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: t.dark ? '#1E1E20' : '#1D1D1F', paddingHorizontal: 16, paddingVertical: 11, borderRadius: 100, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
+    readyDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: t.green },
+    readyToastTxt: { color: '#fff', fontSize: 14.5, fontWeight: '600' },
   });
 }
