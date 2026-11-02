@@ -24,7 +24,8 @@
       "adaptiveIcon": {
         "backgroundColor": "#0E0B1E",
         "foregroundImage": "./assets/images/adaptive-icon.png"
-      }
+      },
+      "permissions": []
     },
     "web": {
       "output": "single",
@@ -73,7 +74,13 @@
       "policy": "appVersion"
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "97e7ddaf-b7ee-42ae-a873-e2ad7450733c"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/97e7ddaf-b7ee-42ae-a873-e2ad7450733c"
     }
   }
 }
