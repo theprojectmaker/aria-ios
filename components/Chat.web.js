@@ -84,6 +84,7 @@ export default function ChatWeb() {
 
   const onNewChat = () => { const c = newChat(); setChats((cs) => [c, ...cs]); setActiveId(c.id); };
   const onDeleteChat = (cid) => setChats((cs) => { let n = cs.filter((c) => c.id !== cid); if (n.length === 0) n = [newChat()]; if (cid === id) setActiveId(n[0].id); return n; });
+  const onClearChats = () => { const c = newChat(); setChats([c]); setActiveId(c.id); };
 
   return (
     <ChatUI
@@ -107,6 +108,7 @@ export default function ChatWeb() {
       onNewChat={onNewChat}
       onOpenChat={(cid) => setActiveId(cid)}
       onDeleteChat={onDeleteChat}
+      onClearChats={onClearChats}
     />
   );
 }

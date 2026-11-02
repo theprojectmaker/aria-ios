@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import Markdown from 'react-native-markdown-display';
 import { ActionsSheet, ToolsHub } from './tools';
+import Settings from './settings';
 
 /* ── icons ─────────────────────────────────────────────────────────── */
 export const AriaMark = ({ size = 22, c = '#fff' }) => (
@@ -26,6 +27,7 @@ const CamIcon = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path
 const TextScanIcon = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round" /><Path d="M8 10h8M8 13h8M8 16h5" stroke={c} strokeWidth={1.7} strokeLinecap="round" /></Svg>;
 const CloseX = ({ c }) => <Svg width={15} height={15} viewBox="0 0 16 16"><Path d="M4 4l8 8M12 4l-8 8" stroke={c} strokeWidth={1.8} strokeLinecap="round" /></Svg>;
 const Chevron = ({ c, open }) => <Svg width={12} height={12} viewBox="0 0 12 12"><Path d={open ? 'M2.5 4.5l3.5 3.5 3.5-3.5' : 'M4.5 2.5l3.5 3.5-3.5 3.5'} fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" /></Svg>;
+const SlidersIcon = ({ c }) => <Svg width={21} height={21} viewBox="0 0 24 24"><Path d="M4 8h9M19 8h1M4 16h1M11 16h9" stroke={c} strokeWidth={1.8} strokeLinecap="round" /><Circle cx={15} cy={8} r={2.4} fill="none" stroke={c} strokeWidth={1.8} /><Circle cx={7} cy={16} r={2.4} fill="none" stroke={c} strokeWidth={1.8} /></Svg>;
 
 // Collapsible reasoning: shows live while the model thinks, collapses to a
 // "Show thinking" toggle once the answer arrives.
@@ -118,7 +120,7 @@ export default function ChatUI({
   status, onDownload, banner,
   onPickImage, attachedUri, onClearImage, canSend,
   title, chats, activeChatId, onNewChat, onOpenChat, onDeleteChat,
-  onPickExample, suggestions = DEFAULT_SUGGESTIONS,
+  onPickExample, suggestions = DEFAULT_SUGGESTIONS, onClearChats,
   greetTitle = 'Aria', greetSub = 'Your private AI — it runs entirely on your phone.',
   placeholder = 'Message Aria', download = {},
 }) {
@@ -129,6 +131,7 @@ export default function ChatUI({
   const [copied, setCopied] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [tool, setTool] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [eta, setEta] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [readyToast, setReadyToast] = useState(false);
@@ -351,9 +354,14 @@ export default function ChatUI({
                 </Pressable>
               ))}
             </ScrollView>
+            <Pressable onPress={() => { setDrawer(false); setSettingsOpen(true); }} style={({ pressed }) => [s.settingsRow, { paddingBottom: insets.bottom + 10 }, pressed && { opacity: 0.6 }]}>
+              <SlidersIcon c={t.label} /><Text style={s.settingsTxt}>Settings</Text>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Settings t={t} visible={settingsOpen} onClose={() => setSettingsOpen(false)} onClearChats={onClearChats} />
 
       {copied ? (<View style={[s.copied, { bottom: insets.bottom + 86 }]} pointerEvents="none"><Text style={s.copiedTxt}>Copied</Text></View>) : null}
       {readyToast ? (
@@ -456,6 +464,8 @@ function styles(t) {
     chatRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 13, marginTop: 3 },
     chatRowTitle: { color: t.label, fontSize: 15, fontWeight: '500', letterSpacing: -0.1 },
     chatRowTime: { color: t.label3, fontSize: 12, marginTop: 2 },
+    settingsRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 14, paddingHorizontal: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.sep, marginTop: 4 },
+    settingsTxt: { color: t.label, fontSize: 16, fontWeight: '600' },
 
     copied: { position: 'absolute', alignSelf: 'center', backgroundColor: t.dark ? '#2C2C2E' : '#1D1D1F', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12 },
     copiedTxt: { color: '#fff', fontSize: 13.5, fontWeight: '500' },

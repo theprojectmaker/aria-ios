@@ -5,6 +5,7 @@ import ChatUI from './ChatUI';
 import VisionEngine from './visionEngine';
 import { useTheme } from './theme';
 import { loadChats, saveChats, newChat, titleFrom } from './chatStore';
+import { usePrefs } from './prefs';
 
 const ENABLED_KEY = 'aria.ai.enabled.v1';
 
@@ -44,26 +45,37 @@ class Boundary extends React.Component {
 
 /* The chat model loads ONCE and stays resident. Photos are handled by a small,
    lazily-mounted vision engine (classifier + OCR) that coexists with it. */
-function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat, onOpenChat, onDeleteChat, startSafe }) {
+function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat, onOpenChat, onDeleteChat, onClearChats, startSafe }) {
   const { models, useLLMChatSession } = require('react-native-executorch');
+  const { model: pref } = usePrefs();
   const small = (models.llm.QWEN3_0_6B && (models.llm.QWEN3_0_6B.DEFAULT || models.llm.QWEN3_0_6B.XNNPACK_8DA4W)) || models.llm.QWEN3_1_7B.DEFAULT;
   const mid = (models.llm.LFM2_5_1_2B && models.llm.LFM2_5_1_2B.DEFAULT) || small;
   const big = models.llm.QWEN3_1_7B.DEFAULT;
-  // iPads have less usable RAM; start small there. Elsewhere try big, then fall
-  // back automatically if the device can't load it (OOM shows as llm.error).
-  const CHAIN = (Platform.OS === 'ios' && Platform.isPad) ? [small] : [big, mid, small];
-  const [tier, setTier] = useState(startSafe ? CHAIN.length - 1 : 0);
+  const isPad = Platform.OS === 'ios' && Platform.isPad;
+  // Chain of models to try: the user's pick first, then smaller fallbacks if the
+  // device can't load it (OOM shows up as llm.error). iPads start small.
+  const chainFor = (p) => {
+    if (isPad) return [small];
+    if (p === 'light') return [small];
+    if (p === 'balanced') return [mid, small];
+    if (p === 'smart') return [big, mid, small];
+    return [big, mid, small]; // auto
+  };
+  const CHAIN = chainFor(pref);
+  const [tier, setTier] = useState((startSafe && pref === 'auto') ? CHAIN.length - 1 : 0);
+  const prefRef = useRef(pref);
+  useEffect(() => { if (prefRef.current !== pref) { prefRef.current = pref; setTier(0); } }, [pref]);
   const MODEL = CHAIN[Math.min(tier, CHAIN.length - 1)];
   const llm = useLLMChatSession(MODEL, {
     initialMessages: [{ role: 'system', content: SYSTEM_PROMPT }],
     generationConfig: { maxNewTokens: 1024, temperature: 0.7 },
   });
 
-  // If a model fails to load, drop to a smaller one and remember to start there next time.
+  // If a model fails to load, drop to a smaller one (and, in auto mode, remember).
   useEffect(() => {
     if (llm.error && tier < CHAIN.length - 1) {
       setTier((x) => x + 1);
-      AsyncStorage.setItem('aria.model.safe.v1', '1').catch(() => {});
+      if (pref === 'auto') AsyncStorage.setItem('aria.model.safe.v1', '1').catch(() => {});
     }
   }, [llm.error]);
 
@@ -209,6 +221,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
         onNewChat={onNewChat}
         onOpenChat={onOpenChat}
         onDeleteChat={onDeleteChat}
+        onClearChats={onClearChats}
       />
     </>
   );
@@ -250,6 +263,10 @@ function ChatsManager({ t, safe }) {
       return next;
     });
   }, []);
+  const onClearChats = useCallback(() => {
+    const c = newChat();
+    setChats([c]); setActiveId(c.id); saveChats([c]);
+  }, []);
 
   if (!chats || !activeId) return null;
   const active = chats.find((c) => c.id === activeId) || chats[0];
@@ -258,7 +275,7 @@ function ChatsManager({ t, safe }) {
     <ModelChat
       t={t} active={active} activeChatId={activeId} chats={chats}
       persistMessages={persistMessages} startSafe={safe}
-      onNewChat={onNewChat} onOpenChat={onOpenChat} onDeleteChat={onDeleteChat}
+      onNewChat={onNewChat} onOpenChat={onOpenChat} onDeleteChat={onDeleteChat} onClearChats={onClearChats}
     />
   );
 }

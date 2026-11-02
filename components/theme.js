@@ -1,11 +1,15 @@
 import { useColorScheme } from 'react-native';
 import { useMemo } from 'react';
+import { usePrefs } from './prefs';
 
 /* Monochrome, premium palette — graphite + white, one neutral system.
    Primary actions use near-black (light) / white (dark), like a pro AI app.
-   No gradients, no decorative color; a single green dot signals "on-device". */
+   No gradients, no decorative color; a single green dot signals "on-device".
+   Honors the user's theme preference (System / Light / Dark) from Settings. */
 export function useTheme() {
-  const dark = useColorScheme() === 'dark';
+  const sys = useColorScheme();
+  const { theme } = usePrefs();
+  const dark = theme === 'dark' ? true : theme === 'light' ? false : sys === 'dark';
   return useMemo(() => dark ? {
     dark: true,
     bg: '#000000', card: '#121214', fill: '#1C1C1E', fill2: '#242426', sep: '#2A2A2C',
