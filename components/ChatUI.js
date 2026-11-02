@@ -25,6 +25,32 @@ const BulbIcon = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Pat
 const CamIcon = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M4 7h3l1.3-2h7.4L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z" fill="none" stroke={c} strokeWidth={1.7} strokeLinejoin="round" /><Circle cx={12} cy={13} r={3.3} fill="none" stroke={c} strokeWidth={1.7} /></Svg>;
 const TextScanIcon = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round" /><Path d="M8 10h8M8 13h8M8 16h5" stroke={c} strokeWidth={1.7} strokeLinecap="round" /></Svg>;
 const CloseX = ({ c }) => <Svg width={15} height={15} viewBox="0 0 16 16"><Path d="M4 4l8 8M12 4l-8 8" stroke={c} strokeWidth={1.8} strokeLinecap="round" /></Svg>;
+const Chevron = ({ c, open }) => <Svg width={12} height={12} viewBox="0 0 12 12"><Path d={open ? 'M2.5 4.5l3.5 3.5 3.5-3.5' : 'M4.5 2.5l3.5 3.5-3.5 3.5'} fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" /></Svg>;
+
+// Collapsible reasoning: shows live while the model thinks, collapses to a
+// "Show thinking" toggle once the answer arrives.
+function ThoughtBlock({ t, think, live }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => { setOpen(!!live); }, [live]);
+  const s = thoughtStyles(t);
+  return (
+    <View style={s.wrap}>
+      <Pressable onPress={() => setOpen((o) => !o)} hitSlop={6} style={s.head}>
+        {live ? <ActivityIndicator size="small" color={t.label3} /> : <Chevron c={t.label2} open={open} />}
+        <Text style={s.headTxt}>{live ? 'Thinking…' : (open ? 'Hide thinking' : 'Show thinking')}</Text>
+      </Pressable>
+      {open && think ? <Text style={s.body}>{think}</Text> : null}
+    </View>
+  );
+}
+function thoughtStyles(t) {
+  return StyleSheet.create({
+    wrap: { borderLeftWidth: 2, borderLeftColor: t.sep, paddingLeft: 11, marginBottom: 8 },
+    head: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 2 },
+    headTxt: { color: t.label2, fontSize: 13, fontWeight: '600' },
+    body: { color: t.label2, fontSize: 13.5, lineHeight: 20, marginTop: 6, fontStyle: 'italic' },
+  });
+}
 
 const ICONS = { pencil: PencilSq, bulb: BulbIcon, camera: CamIcon, textscan: TextScanIcon };
 
@@ -257,26 +283,17 @@ export default function ChatUI({
                 <Text style={s.aiName}>Aria</Text>
               </View>
               {m.imageUri ? <Image source={{ uri: m.imageUri }} style={[s.msgImage, { marginLeft: 34 }]} resizeMode="cover" /> : null}
+              {m.think ? <View style={s.aiBody}><ThoughtBlock t={t} think={m.think} live={!!m.streaming && !m.text} /></View> : null}
               {m.text ? <View style={s.aiBody}><Markdown style={mdStyles(t)}>{m.text}</Markdown></View> : null}
+              {m.streaming && !m.think && !m.text ? (
+                <View style={[s.aiBody, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+                  <ActivityIndicator size="small" color={t.label3} />
+                  <Text style={s.thinking}>Thinking…</Text>
+                </View>
+              ) : null}
             </Pressable>
           )
         ))}
-        {generating && (() => {
-          const last = messages[messages.length - 1];
-          const waiting = !last || last.role !== 'assistant' || !last.text;
-          return waiting ? (
-            <View style={s.aiRow}>
-              <View style={s.aiHead}>
-                <View style={s.aiAvatar}><AriaMark size={13} c={t.onAccent} /></View>
-                <Text style={s.aiName}>Aria</Text>
-              </View>
-              <View style={[s.aiBody, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
-                <ActivityIndicator size="small" color={t.label3} />
-                <Text style={s.thinking}>Thinking…</Text>
-              </View>
-            </View>
-          ) : null;
-        })()}
       </ScrollView>
 
       {attachedUri ? (

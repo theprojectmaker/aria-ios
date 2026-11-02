@@ -6,6 +6,9 @@ import { newChat, titleFrom } from './chatStore';
 const DEMO_REPLY =
   "Here's a **preview** of Aria. On your phone I run completely on-device — no internet — and I can:\n\n- answer questions and help you write\n- look at a **photo** and tell you what's in it or read its text\n- keep your **saved chats**\n\nInstall Aria to use the real offline AI.";
 
+const DEMO_THINK =
+  "The user wants quick dinner ideas. I should give a few simple, common options that are fast to make and use everyday ingredients, then keep it short.";
+
 const DEMO_VISION =
   "I can see **lakeside** (86% sure) — it might also be valley, mountain, seashore.\n\n**Text I can read:**\nNORTH TRAIL\n2.4 mi";
 
@@ -45,15 +48,28 @@ export default function ChatWeb() {
   const setMessages = (msgs) => setChats((cs) => cs.map((c) => c.id === id
     ? { ...c, messages: msgs, title: (!c.title || c.title === 'New chat') ? titleFrom(msgs) : c.title, updatedAt: Date.now() } : c));
 
-  const stream = (full, base) => {
+  const runStream = (field, full, keepThink, base, done) => {
     const words = full.split(' ');
     let i = 0;
-    setGenerating(true);
     timer.current = setInterval(() => {
       i += 1;
-      setMessages([...base, { role: 'assistant', text: words.slice(0, i).join(' '), streaming: i < words.length }]);
-      if (i >= words.length) { clearInterval(timer.current); setGenerating(false); }
-    }, 38);
+      const partial = words.slice(0, i).join(' ');
+      const msg = field === 'think'
+        ? { role: 'assistant', think: partial, text: '', streaming: true }
+        : { role: 'assistant', think: keepThink || '', text: partial, streaming: true };
+      setMessages([...base, msg]);
+      if (i >= words.length) { clearInterval(timer.current); done && done(); }
+    }, 30);
+  };
+
+  const stream = (answer, base, think) => {
+    setGenerating(true);
+    const finish = () => {
+      setMessages([...base, { role: 'assistant', think: think || '', text: answer, streaming: false }]);
+      setGenerating(false);
+    };
+    if (think) runStream('think', think, null, base, () => runStream('answer', answer, think, base, finish));
+    else runStream('answer', answer, '', base, finish);
   };
 
   const onSend = () => {
@@ -61,9 +77,9 @@ export default function ChatWeb() {
     if ((!text && !attachedUri) || generating) return;
     const isPhoto = !!attachedUri;
     const base = [...messages, { role: 'user', text: text || '', imageUri: attachedUri }];
-    setMessages([...base, { role: 'assistant', text: '', streaming: true }]);
+    setMessages([...base, { role: 'assistant', text: '', think: '', streaming: true }]);
     setInput(''); setAttachedUri(null);
-    setTimeout(() => stream(isPhoto ? DEMO_VISION : DEMO_REPLY, base), 220);
+    setTimeout(() => stream(isPhoto ? DEMO_VISION : DEMO_REPLY, base, isPhoto ? null : DEMO_THINK), 220);
   };
 
   const onNewChat = () => { const c = newChat(); setChats((cs) => [c, ...cs]); setActiveId(c.id); };

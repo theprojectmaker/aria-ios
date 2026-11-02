@@ -10,8 +10,8 @@ const ENABLED_KEY = 'aria.ai.enabled.v1';
 
 const SYSTEM_PROMPT =
   "You are Aria, a helpful, friendly AI assistant running privately on the user's phone, with no internet. " +
-  "Give clear, direct, and accurate answers. Think it through, then answer. Keep it concise unless the user asks for detail. " +
-  "If you are unsure or don't know, say so honestly rather than making something up.";
+  "Keep any reasoning brief, then ALWAYS finish with a clear, direct answer to the user. " +
+  "Be concise unless the user asks for detail. If you are unsure, say so honestly rather than making something up.";
 
 const DOWNLOAD = {
   title: 'Set up Aria',
@@ -19,13 +19,20 @@ const DOWNLOAD = {
   sizeNote: 'About 1.2 GB on iPhone · stays on your device',
 };
 
-// Qwen3 reasons inside <think>…</think>; show only the final answer.
-function cleanThink(str) {
-  if (!str) return str;
-  let out = str.replace(/<think>[\s\S]*?<\/think>/g, '');
-  const open = out.indexOf('<think>');
-  if (open !== -1) out = out.slice(0, open);
-  return out.replace(/^\s+/, '');
+// Qwen3 reasons inside <think>…</think>. Split the reasoning from the answer so
+// the UI can show the answer and keep the thinking in a collapsible section.
+function parseThink(s) {
+  if (!s) return { think: '', answer: '' };
+  const close = s.indexOf('</think>');
+  if (close !== -1) {
+    let think = s.slice(0, close);
+    const open = think.indexOf('<think>');
+    if (open !== -1) think = think.slice(open + 7);
+    return { think: think.trim(), answer: s.slice(close + 8).replace(/^\s+/, '') };
+  }
+  const open = s.indexOf('<think>');
+  if (open !== -1) return { think: s.slice(open + 7).replace(/^\s+/, ''), answer: '' };
+  return { think: '', answer: s };
 }
 
 class Boundary extends React.Component {
@@ -49,7 +56,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   const MODEL = CHAIN[Math.min(tier, CHAIN.length - 1)];
   const llm = useLLMChatSession(MODEL, {
     initialMessages: [{ role: 'system', content: SYSTEM_PROMPT }],
-    generationConfig: { maxNewTokens: 512, temperature: 0.7 },
+    generationConfig: { maxNewTokens: 1024, temperature: 0.7 },
   });
 
   // If a model fails to load, drop to a smaller one and remember to start there next time.
@@ -142,18 +149,27 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     if (!text || !llm.isReady || !llm.sendMessage) return;
     setInput('');
     const base = [...messages, { role: 'user', text }];
-    commit([...base, { role: 'assistant', text: '', streaming: true }]);
+    commit([...base, { role: 'assistant', text: '', think: '', streaming: true }]);
     setGenerating(true);
     let acc = '';
+    let errored = false;
     try {
       await llm.sendMessage(text, (tok) => {
         acc += tok;
-        setMessages([...base, { role: 'assistant', text: cleanThink(acc), streaming: true }]);
+        const { think, answer } = parseThink(acc);
+        setMessages([...base, { role: 'assistant', text: answer, think, streaming: true }]);
       });
     } catch (e) {
+      errored = true;
       acc = acc || ('⚠️ ' + ((e && e.message) ? e.message : String(e)));
     }
-    commit([...base, { role: 'assistant', text: cleanThink(acc) || acc, streaming: false }]);
+    const { think, answer } = parseThink(acc);
+    let finalAnswer = answer;
+    if (!errored && !finalAnswer.trim()) {
+      // Ran out of room while thinking — don't leave the user with nothing.
+      finalAnswer = think ? 'Hmm, I didn’t quite finish that thought. Try asking again, or ask for something shorter.' : acc;
+    }
+    commit([...base, { role: 'assistant', text: finalAnswer, think, streaming: false }]);
     setGenerating(false);
   }, [input, generating, preparing, attachedUri, visionReady, visionFailed, messages, llm]);
 
