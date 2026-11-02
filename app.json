@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "aria",
     "userInterfaceStyle": "automatic",
-    "backgroundColor": "#17170F",
+    "backgroundColor": "#000000",
     "ios": {
       "bundleIdentifier": "com.solyapps.aria",
       "supportsTablet": true,
@@ -22,7 +22,7 @@
     "android": {
       "package": "com.solyapps.aria",
       "adaptiveIcon": {
-        "backgroundColor": "#0E7C6B",
+        "backgroundColor": "#1A1A1C",
         "foregroundImage": "./assets/images/adaptive-icon.png"
       },
       "permissions": []
@@ -36,13 +36,13 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0E7C6B",
+          "backgroundColor": "#1A1A1C",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 124,
+          "imageWidth": 120,
           "dark": {
-            "backgroundColor": "#0E7C6B",
+            "backgroundColor": "#1A1A1C",
             "image": "./assets/images/splash-icon.png",
-            "imageWidth": 124
+            "imageWidth": 120
           }
         }
       ],

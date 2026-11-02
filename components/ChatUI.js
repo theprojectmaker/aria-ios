@@ -7,27 +7,32 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import Markdown from 'react-native-markdown-display';
 
-const DEFAULT_EXAMPLES = [
-  'Explain quantum entanglement like I’m five.',
-  'Write a warm, short thank-you note to a mentor.',
-  'Give me 5 dinner ideas with chicken and rice.',
-  'Draft a to-do list for moving apartments.',
-];
-
 /* ── icons ─────────────────────────────────────────────────────────── */
-// The Aria "A" monogram — matches the app icon.
 export const AriaMark = ({ size = 22, c = '#fff' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Path d="M12 6.4 L7.3 17.9 M12 6.4 L16.7 17.9 M8.73 14.4 L15.27 14.4" fill="none" stroke={c} strokeWidth={2.35} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
-const SendArrow = ({ c }) => <Svg width={20} height={20} viewBox="0 0 20 20"><Path d="M10 16V5M10 5l-5 5M10 5l5 5" fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" /></Svg>;
-const StopSquare = ({ c }) => <Svg width={16} height={16} viewBox="0 0 18 18"><Path d="M4 4h10v10H4z" fill={c} rx={2} /></Svg>;
-const PhotoIcon = ({ c }) => <Svg width={23} height={23} viewBox="0 0 24 24"><Path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" fill="none" stroke={c} strokeWidth={1.8} strokeLinejoin="round" /><Path d="M3 16l5-5 4 4 3-3 6 6" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" /><Circle cx={8} cy={9.5} r={1.4} fill={c} /></Svg>;
-const MenuIcon = ({ c }) => <Svg width={24} height={24} viewBox="0 0 24 24"><Path d="M4 7h16M4 12h16M4 17h16" stroke={c} strokeWidth={2} strokeLinecap="round" /></Svg>;
-const PlusIcon = ({ c }) => <Svg width={24} height={24} viewBox="0 0 24 24"><Path d="M12 5v14M5 12h14" stroke={c} strokeWidth={2} strokeLinecap="round" /></Svg>;
+const SendArrow = ({ c }) => <Svg width={19} height={19} viewBox="0 0 20 20"><Path d="M10 15.5V5.5M10 5.5l-4.5 4.5M10 5.5l4.5 4.5" fill="none" stroke={c} strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round" /></Svg>;
+const StopDot = ({ c }) => <Svg width={15} height={15} viewBox="0 0 16 16"><Path d="M4.5 4.5h7v7h-7z" rx={1.6} fill={c} /></Svg>;
+const PlusIcon = ({ c, s = 22 }) => <Svg width={s} height={s} viewBox="0 0 24 24"><Path d="M12 5.5v13M5.5 12h13" stroke={c} strokeWidth={2} strokeLinecap="round" /></Svg>;
+const MenuIcon = ({ c }) => <Svg width={23} height={23} viewBox="0 0 24 24"><Path d="M4 7h16M4 12h16M4 17h16" stroke={c} strokeWidth={1.9} strokeLinecap="round" /></Svg>;
+const ComposeIcon = ({ c }) => <Svg width={22} height={22} viewBox="0 0 24 24"><Path d="M16.5 4.5l3 3L9 18l-3.8.8L6 15 16.5 4.5Z" fill="none" stroke={c} strokeWidth={1.8} strokeLinejoin="round" /><Path d="M4 20.5h16" stroke={c} strokeWidth={1.8} strokeLinecap="round" /></Svg>;
 const TrashIcon = ({ c }) => <Svg width={18} height={18} viewBox="0 0 24 24"><Path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" /></Svg>;
-const LockIcon = ({ c }) => <Svg width={13} height={13} viewBox="0 0 24 24"><Path d="M6 10h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z" fill="none" stroke={c} strokeWidth={1.9} strokeLinejoin="round" /><Path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke={c} strokeWidth={1.9} strokeLinecap="round" /></Svg>;
+const PencilSq = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M15.5 5l3.5 3.5L10 17.5 6 18.5 7 14.5 15.5 5Z" fill="none" stroke={c} strokeWidth={1.7} strokeLinejoin="round" /></Svg>;
+const BulbIcon = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M9 17h6M10 20.5h4M12 3a6 6 0 0 1 3.6 10.8c-.6.5-.9 1.1-.9 1.8H9.3c0-.7-.3-1.3-.9-1.8A6 6 0 0 1 12 3Z" fill="none" stroke={c} strokeWidth={1.7} strokeLinejoin="round" strokeLinecap="round" /></Svg>;
+const CamIcon = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M4 7h3l1.3-2h7.4L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z" fill="none" stroke={c} strokeWidth={1.7} strokeLinejoin="round" /><Circle cx={12} cy={13} r={3.3} fill="none" stroke={c} strokeWidth={1.7} /></Svg>;
+const TextScanIcon = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round" /><Path d="M8 10h8M8 13h8M8 16h5" stroke={c} strokeWidth={1.7} strokeLinecap="round" /></Svg>;
+const CloseX = ({ c }) => <Svg width={15} height={15} viewBox="0 0 16 16"><Path d="M4 4l8 8M12 4l-8 8" stroke={c} strokeWidth={1.8} strokeLinecap="round" /></Svg>;
+
+const ICONS = { pencil: PencilSq, bulb: BulbIcon, camera: CamIcon, textscan: TextScanIcon };
+
+const DEFAULT_SUGGESTIONS = [
+  { key: 'write', title: 'Help me write', sub: 'a note, email or draft', icon: 'pencil', kind: 'text', value: 'Help me write ' },
+  { key: 'explain', title: 'Explain a topic', sub: 'simply and clearly', icon: 'bulb', kind: 'text', value: 'Explain ' },
+  { key: 'identify', title: 'Identify a photo', sub: 'see what’s in it', icon: 'camera', kind: 'photo' },
+  { key: 'readtext', title: 'Read text in a photo', sub: 'signs, notes, labels', icon: 'textscan', kind: 'photo' },
+];
 
 function timeAgo(ts) {
   const s = Math.round((Date.now() - (ts || 0)) / 1000);
@@ -39,11 +44,12 @@ function timeAgo(ts) {
 
 export default function ChatUI({
   t, messages, input, setInput, onSend, onStop, generating,
-  status, onDownload, onPickExample, banner,
+  status, onDownload, banner,
   onPickImage, attachedUri, onClearImage, canSend,
   title, chats, activeChatId, onNewChat, onOpenChat, onDeleteChat,
-  examples = DEFAULT_EXAMPLES, greetTitle = 'How can I help?',
-  greetSub, placeholder = 'Message', download = {},
+  onPickExample, suggestions = DEFAULT_SUGGESTIONS,
+  greetTitle = 'Aria', greetSub = 'Your private AI — it runs entirely on your phone.',
+  placeholder = 'Message Aria', download = {},
 }) {
   const insets = useSafeAreaInsets();
   const s = styles(t);
@@ -60,84 +66,92 @@ export default function ChatUI({
   const empty = messages.length === 0;
   const sendEnabled = (canSend !== undefined ? canSend : ready) && (!!input.trim() || !!attachedUri);
   const hasChats = Array.isArray(chats);
-  const sub = greetSub || (onPickImage
-    ? 'I run entirely on your phone — no internet needed. Add a photo and ask away.'
-    : 'I run entirely on your phone — no internet, nothing leaves your device.');
 
   const copy = (text) => {
     try { const C = require('expo-clipboard'); C.setStringAsync(text); setCopied(true); setTimeout(() => setCopied(false), 1200); } catch (e) {}
+  };
+  const tapSuggestion = (sg) => {
+    if (sg.kind === 'photo') { onPickImage && onPickImage(); }
+    else { onPickExample && onPickExample(sg.value || ''); }
   };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* header */}
-      <View style={[s.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[s.header, { paddingTop: insets.top + 6 }]}>
         <View style={s.headRow}>
           {hasChats ? (
-            <Pressable onPress={() => setDrawer(true)} hitSlop={10} style={s.headBtn}><MenuIcon c={t.label} /></Pressable>
+            <Pressable onPress={() => setDrawer(true)} hitSlop={10} style={({ pressed }) => [s.headBtn, pressed && { opacity: 0.4 }]}><MenuIcon c={t.label} /></Pressable>
           ) : <View style={s.headBtn} />}
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={s.hTitle} numberOfLines={1}>{title || 'Aria'}</Text>
             <View style={s.hStatus}>
-              <View style={[s.dot, { backgroundColor: ready ? t.green : status.state === 'unavailable' ? t.label3 : t.accent }]} />
+              <View style={[s.dot, { backgroundColor: ready ? t.green : status.state === 'unavailable' ? t.label3 : t.label2 }]} />
               <Text style={s.hStatusTxt}>{status.label}</Text>
             </View>
           </View>
           {hasChats ? (
-            <Pressable onPress={onNewChat} hitSlop={10} style={s.headBtn}><PlusIcon c={t.accent} /></Pressable>
+            <Pressable onPress={onNewChat} hitSlop={10} style={({ pressed }) => [s.headBtn, pressed && { opacity: 0.4 }]}><ComposeIcon c={t.label} /></Pressable>
           ) : <View style={s.headBtn} />}
         </View>
       </View>
 
       {banner ? (<View style={s.banner}><Text style={s.bannerTxt}>{banner}</Text></View>) : null}
 
-      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 20, flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        {status.state === 'needs-download' && (
-          <View style={{ flex: 1, justifyContent: 'center' }}>
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 18, flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        {(status.state === 'needs-download' || status.state === 'downloading' || status.state === 'loading' || status.state === 'unavailable') && (
+          <View style={{ flex: 1, justifyContent: 'center', paddingVertical: 24 }}>
             <View style={s.setup}>
-              <View style={s.setupGlyph}><AriaMark size={28} c={t.onAccent} /></View>
-              <Text style={s.setupTitle}>{download.title || 'Set up on-device AI'}</Text>
-              <Text style={s.setupBody}>{download.body || 'Download the AI model once so it can run right on your phone. It needs the internet this one time — Wi-Fi is best. After that, it works fully offline.'}</Text>
-              <View style={s.privacyRow}><LockIcon c={t.label2} /><Text style={s.privacyTxt}>{download.sizeNote || 'About 1.2 GB · stored on your device'}</Text></View>
-              <Pressable onPress={onDownload} style={({ pressed }) => [s.setupBtn, { backgroundColor: t.accent }, pressed && { opacity: 0.75 }]}><Text style={s.setupBtnTxt}>Download model</Text></Pressable>
-            </View>
-          </View>
-        )}
-        {status.state === 'downloading' && (
-          <View style={{ flex: 1, justifyContent: 'center' }}>
-            <View style={s.setup}>
-              <View style={s.setupGlyph}><AriaMark size={28} c={t.onAccent} /></View>
-              <Text style={s.setupTitle}>Downloading model…</Text>
-              <View style={s.progressTrack}><View style={[s.progressFill, { backgroundColor: t.accent, width: `${Math.round((status.progress || 0) * 100)}%` }]} /></View>
-              <Text style={s.setupBody}>{Math.round((status.progress || 0) * 100)}% — keep Aria open</Text>
-            </View>
-          </View>
-        )}
-        {status.state === 'loading' && (<View style={{ flex: 1, justifyContent: 'center' }}><View style={s.setup}><ActivityIndicator color={t.accent} /><Text style={[s.setupBody, { marginTop: 14 }]}>Loading the model into memory…</Text></View></View>)}
-        {status.state === 'unavailable' && (
-          <View style={{ flex: 1, justifyContent: 'center' }}>
-            <View style={s.setup}>
-              <View style={[s.setupGlyph, { backgroundColor: t.fill }]}><AriaMark size={26} c={t.label2} /></View>
-              <Text style={s.setupTitle}>Runs in the installed app</Text>
-              <Text style={s.setupBody}>Aria’s on-device AI runs in the real app from the App Store. This is a preview of the interface.</Text>
+              <View style={[s.setupGlyph, status.state === 'unavailable' && { backgroundColor: t.fill }]}>
+                <AriaMark size={26} c={status.state === 'unavailable' ? t.label2 : t.onAccent} />
+              </View>
+              {status.state === 'needs-download' && (<>
+                <Text style={s.setupTitle}>{download.title || 'Set up Aria'}</Text>
+                <Text style={s.setupBody}>{download.body || 'Download the AI once so Aria can run right on your phone. It needs the internet this one time — after that it works completely offline.'}</Text>
+                <Text style={s.setupNote}>{download.sizeNote || 'One-time download · stays on your device'}</Text>
+                <Pressable onPress={onDownload} style={({ pressed }) => [s.primaryBtn, pressed && { opacity: 0.8 }]}><Text style={s.primaryBtnTxt}>Download</Text></Pressable>
+              </>)}
+              {status.state === 'downloading' && (<>
+                <Text style={s.setupTitle}>Downloading…</Text>
+                <View style={s.progressTrack}><View style={[s.progressFill, { width: `${Math.round((status.progress || 0) * 100)}%` }]} /></View>
+                <Text style={s.setupNote}>{Math.round((status.progress || 0) * 100)}% · you can keep using your phone</Text>
+              </>)}
+              {status.state === 'loading' && (<>
+                <ActivityIndicator color={t.label2} style={{ marginTop: 4 }} />
+                <Text style={[s.setupBody, { marginTop: 14 }]}>Getting things ready…</Text>
+              </>)}
+              {status.state === 'unavailable' && (<>
+                <Text style={s.setupTitle}>Runs in the installed app</Text>
+                <Text style={s.setupBody}>Aria’s on-device AI runs in the real app. This is a preview of the interface.</Text>
+              </>)}
             </View>
           </View>
         )}
 
         {ready && empty && (
-          <View style={{ flex: 1, justifyContent: 'center' }}>
-            <View style={s.heroGlyph}><AriaMark size={30} c={t.accent} /></View>
+          <View style={{ flex: 1, justifyContent: 'center', paddingVertical: 20 }}>
+            <View style={s.heroMark}><AriaMark size={28} c={t.onAccent} /></View>
             <Text style={s.greet}>{greetTitle}</Text>
-            <Text style={s.greetSub}>{sub}</Text>
-            <View style={{ marginTop: 20, gap: 9 }}>
-              {examples.map((ex) => (<Pressable key={ex} onPress={() => onPickExample(ex)} style={({ pressed }) => [s.example, pressed && { opacity: 0.6 }]}><Text style={s.exampleTxt}>{ex}</Text></Pressable>))}
+            <Text style={s.greetSub}>{greetSub}</Text>
+            <View style={s.sgGrid}>
+              {suggestions.map((sg) => {
+                const Ic = ICONS[sg.icon] || PencilSq;
+                return (
+                  <Pressable key={sg.key} onPress={() => tapSuggestion(sg)} style={({ pressed }) => [s.sgCard, pressed && { opacity: 0.6 }]}>
+                    <Ic c={t.label} />
+                    <Text style={s.sgTitle}>{sg.title}</Text>
+                    <Text style={s.sgSub} numberOfLines={1}>{sg.sub}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         )}
 
+        {!empty && <View style={{ height: 8 }} />}
         {messages.map((m, i) => (
           m.role === 'user' ? (
-            <Pressable key={i} onLongPress={() => m.text && copy(m.text)} style={[s.msgRow, { justifyContent: 'flex-end' }]}>
+            <Pressable key={i} onLongPress={() => m.text && copy(m.text)} style={s.userRow}>
               <View style={s.userBubble}>
                 {m.imageUri ? <Image source={{ uri: m.imageUri }} style={s.msgImage} resizeMode="cover" /> : null}
                 {m.text ? <Text style={s.userTxt}>{m.text}</Text> : null}
@@ -145,30 +159,61 @@ export default function ChatUI({
             </Pressable>
           ) : (
             <Pressable key={i} onLongPress={() => m.text && copy(m.text)} style={s.aiRow}>
-              {m.imageUri ? <Image source={{ uri: m.imageUri }} style={s.msgImage} resizeMode="cover" /> : null}
-              {m.text ? <Markdown style={mdStyles(t)}>{m.text}</Markdown> : null}
+              <View style={s.aiHead}>
+                <View style={s.aiAvatar}><AriaMark size={13} c={t.onAccent} /></View>
+                <Text style={s.aiName}>Aria</Text>
+              </View>
+              {m.imageUri ? <Image source={{ uri: m.imageUri }} style={[s.msgImage, { marginLeft: 34 }]} resizeMode="cover" /> : null}
+              {m.text ? <View style={s.aiBody}><Markdown style={mdStyles(t)}>{m.text}</Markdown></View> : null}
             </Pressable>
           )
         ))}
-        {generating && (<View style={s.thinkingRow}><ActivityIndicator size="small" color={t.label3} /><Text style={s.thinking}>Thinking…</Text></View>)}
+        {generating && (() => {
+          const last = messages[messages.length - 1];
+          const waiting = !last || last.role !== 'assistant' || !last.text;
+          return waiting ? (
+            <View style={s.aiRow}>
+              <View style={s.aiHead}>
+                <View style={s.aiAvatar}><AriaMark size={13} c={t.onAccent} /></View>
+                <Text style={s.aiName}>Aria</Text>
+              </View>
+              <View style={[s.aiBody, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+                <ActivityIndicator size="small" color={t.label3} />
+                <Text style={s.thinking}>Thinking…</Text>
+              </View>
+            </View>
+          ) : null;
+        })()}
       </ScrollView>
 
       {attachedUri ? (
         <View style={s.attachRow}>
           <Image source={{ uri: attachedUri }} style={s.attachThumb} resizeMode="cover" />
-          <Text style={s.attachLabel} numberOfLines={1}>Photo attached</Text>
-          <Pressable onPress={onClearImage} hitSlop={10} style={s.attachX}><Text style={{ color: t.label2, fontSize: 18 }}>✕</Text></Pressable>
+          <Text style={s.attachLabel} numberOfLines={1}>Photo ready</Text>
+          <Pressable onPress={onClearImage} hitSlop={10} style={s.attachX}><CloseX c={t.label2} /></Pressable>
         </View>
       ) : null}
 
-      <View style={[s.inputBar, { paddingBottom: insets.bottom ? 10 : 12 }]}>
-        <View style={s.inputWrap}>
-          {onPickImage ? (<Pressable onPress={onPickImage} disabled={!ready || generating} style={[s.photoBtn, { opacity: ready && !generating ? 1 : 0.4 }]}><PhotoIcon c={t.accent} /></Pressable>) : null}
-          <TextInput style={s.input} value={input} onChangeText={setInput} placeholder={ready ? placeholder : 'Set up the model to start'} placeholderTextColor={t.label3} editable={ready && !generating} multiline onSubmitEditing={onSend} blurOnSubmit={false} />
+      <View style={[s.inputBar, { paddingBottom: insets.bottom ? insets.bottom : 10 }]}>
+        <View style={s.inputPill}>
+          {onPickImage ? (
+            <Pressable onPress={onPickImage} disabled={!ready || generating} style={({ pressed }) => [s.plusBtn, { opacity: ready && !generating ? 1 : 0.35 }, pressed && { opacity: 0.4 }]}><PlusIcon c={t.label} s={23} /></Pressable>
+          ) : <View style={{ width: 6 }} />}
+          <TextInput
+            style={s.input}
+            value={input}
+            onChangeText={setInput}
+            placeholder={ready ? placeholder : 'Set up Aria to start'}
+            placeholderTextColor={t.label3}
+            editable={ready && !generating}
+            multiline
+            onSubmitEditing={onSend}
+            blurOnSubmit={false}
+          />
           {generating ? (
-            <Pressable onPress={onStop} style={[s.sendBtn, { backgroundColor: t.label2 }]}><StopSquare c="#FFFFFF" /></Pressable>
+            <Pressable onPress={onStop} style={s.sendBtn}><View style={[s.sendCircle, { backgroundColor: t.accent }]}><StopDot c={t.onAccent} /></View></Pressable>
           ) : (
-            <Pressable onPress={onSend} disabled={!sendEnabled} style={[s.sendBtn, { backgroundColor: sendEnabled ? t.accent : t.fill }]}><SendArrow c={sendEnabled ? '#FFFFFF' : t.label3} /></Pressable>
+            <Pressable onPress={onSend} disabled={!sendEnabled} style={s.sendBtn}><View style={[s.sendCircle, { backgroundColor: sendEnabled ? t.accent : t.fill2 }]}><SendArrow c={sendEnabled ? t.onAccent : t.label3} /></View></Pressable>
           )}
         </View>
       </View>
@@ -176,23 +221,23 @@ export default function ChatUI({
       {/* chats drawer */}
       <Modal visible={drawer} transparent animationType="fade" onRequestClose={() => setDrawer(false)}>
         <Pressable style={s.drawerBackdrop} onPress={() => setDrawer(false)}>
-          <Pressable style={[s.drawer, { paddingTop: insets.top + 12 }]} onPress={() => {}}>
+          <Pressable style={[s.drawer, { paddingTop: insets.top + 14 }]} onPress={() => {}}>
             <View style={s.drawerHead}>
               <Text style={s.drawerTitle}>Chats</Text>
-              <Pressable onPress={() => { onNewChat(); setDrawer(false); }} hitSlop={10} style={s.newChatBtn}>
-                <PlusIcon c={t.accent} /><Text style={{ color: t.accent, fontSize: 15, fontWeight: '600', marginLeft: 4 }}>New</Text>
+              <Pressable onPress={() => { onNewChat(); setDrawer(false); }} hitSlop={10} style={({ pressed }) => [s.newChatBtn, pressed && { opacity: 0.5 }]}>
+                <PlusIcon c={t.label} s={18} /><Text style={s.newChatTxt}>New</Text>
               </Pressable>
             </View>
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
               {(chats || []).length === 0 ? (
-                <Text style={[s.setupBody, { marginTop: 20 }]}>No saved chats yet.</Text>
+                <Text style={[s.setupBody, { marginTop: 20, textAlign: 'left' }]}>No saved chats yet.</Text>
               ) : (chats || []).map((c) => (
-                <Pressable key={c.id} onPress={() => { onOpenChat(c.id); setDrawer(false); }} style={[s.chatRow, c.id === activeChatId && { backgroundColor: t.fill }]}>
+                <Pressable key={c.id} onPress={() => { onOpenChat(c.id); setDrawer(false); }} style={({ pressed }) => [s.chatRow, c.id === activeChatId && { backgroundColor: t.fill }, pressed && { opacity: 0.6 }]}>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={s.chatRowTitle} numberOfLines={1}>{c.title || 'New chat'}</Text>
                     <Text style={s.chatRowTime}>{timeAgo(c.updatedAt)}</Text>
                   </View>
-                  <Pressable onPress={() => onDeleteChat(c.id)} hitSlop={10} style={{ padding: 6 }}><TrashIcon c={t.label2} /></Pressable>
+                  <Pressable onPress={() => onDeleteChat(c.id)} hitSlop={10} style={{ padding: 6 }}><TrashIcon c={t.label3} /></Pressable>
                 </Pressable>
               ))}
             </ScrollView>
@@ -200,85 +245,91 @@ export default function ChatUI({
         </Pressable>
       </Modal>
 
-      {copied ? (<View style={[s.copied, { bottom: insets.bottom + 80 }]} pointerEvents="none"><Text style={s.copiedTxt}>Copied</Text></View>) : null}
+      {copied ? (<View style={[s.copied, { bottom: insets.bottom + 86 }]} pointerEvents="none"><Text style={s.copiedTxt}>Copied</Text></View>) : null}
     </KeyboardAvoidingView>
   );
 }
 
 function mdStyles(t) {
   return {
-    body: { color: t.label, fontSize: 16, lineHeight: 23 },
+    body: { color: t.label, fontSize: 16, lineHeight: 24 },
     strong: { fontWeight: '700' },
     bullet_list: { marginVertical: 2 },
     ordered_list: { marginVertical: 2 },
     code_inline: { backgroundColor: t.fill, color: t.label, borderRadius: 4, paddingHorizontal: 4, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
     fence: { backgroundColor: t.fill, color: t.label, borderRadius: 10, padding: 11, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
     code_block: { backgroundColor: t.fill, color: t.label, borderRadius: 10, padding: 11 },
-    link: { color: t.accent },
-    heading1: { color: t.label, fontSize: 20, fontWeight: '700' },
-    heading2: { color: t.label, fontSize: 18, fontWeight: '700' },
+    link: { color: t.blue },
+    heading1: { color: t.label, fontSize: 21, fontWeight: '700', marginBottom: 2 },
+    heading2: { color: t.label, fontSize: 18, fontWeight: '700', marginBottom: 2 },
   };
 }
 
 function styles(t) {
   return StyleSheet.create({
-    header: { paddingHorizontal: 10, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.sep, backgroundColor: t.card },
+    header: { paddingHorizontal: 8, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.sep, backgroundColor: t.bg },
     headRow: { flexDirection: 'row', alignItems: 'center' },
-    headBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    hTitle: { color: t.label, fontSize: 16, fontWeight: '600', letterSpacing: 0.1, maxWidth: '90%' },
-    hStatus: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+    headBtn: { width: 42, height: 38, alignItems: 'center', justifyContent: 'center' },
+    hTitle: { color: t.label, fontSize: 16, fontWeight: '600', letterSpacing: -0.2, maxWidth: '88%' },
+    hStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
     dot: { width: 6, height: 6, borderRadius: 3 },
-    hStatusTxt: { color: t.label2, fontSize: 12 },
+    hStatusTxt: { color: t.label2, fontSize: 11.5, letterSpacing: 0.1 },
 
     banner: { backgroundColor: t.fill, paddingVertical: 8, paddingHorizontal: 16 },
     bannerTxt: { color: t.label2, fontSize: 12.5, textAlign: 'center' },
 
-    setup: { backgroundColor: t.card, borderRadius: 20, padding: 24, alignItems: 'center', borderWidth: t.dark ? 0 : StyleSheet.hairlineWidth, borderColor: t.sep },
-    setupGlyph: { width: 64, height: 64, borderRadius: 32, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-    setupTitle: { color: t.label, fontSize: 19, fontWeight: '700', marginBottom: 8, letterSpacing: -0.2 },
+    setup: { backgroundColor: t.card, borderRadius: 22, paddingVertical: 28, paddingHorizontal: 24, alignItems: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: t.sep },
+    setupGlyph: { width: 60, height: 60, borderRadius: 17, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
+    setupTitle: { color: t.label, fontSize: 20, fontWeight: '700', marginBottom: 8, letterSpacing: -0.3 },
     setupBody: { color: t.label2, fontSize: 14.5, lineHeight: 21, textAlign: 'center' },
-    privacyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 },
-    privacyTxt: { color: t.label2, fontSize: 12.5, fontWeight: '500' },
-    setupBtn: { marginTop: 20, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 34, alignSelf: 'stretch', alignItems: 'center' },
-    setupBtnTxt: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
-    progressTrack: { height: 8, borderRadius: 4, backgroundColor: t.fill, width: '100%', marginTop: 16, overflow: 'hidden' },
-    progressFill: { height: 8, borderRadius: 4 },
+    setupNote: { color: t.label3, fontSize: 12.5, marginTop: 14, fontWeight: '500' },
+    primaryBtn: { marginTop: 20, borderRadius: 100, paddingVertical: 14, paddingHorizontal: 40, backgroundColor: t.accent, alignSelf: 'stretch', alignItems: 'center' },
+    primaryBtnTxt: { color: t.onAccent, fontSize: 16, fontWeight: '600' },
+    progressTrack: { height: 6, borderRadius: 3, backgroundColor: t.fill, width: '100%', marginTop: 18, overflow: 'hidden' },
+    progressFill: { height: 6, borderRadius: 3, backgroundColor: t.accent },
 
-    heroGlyph: { width: 60, height: 60, borderRadius: 18, backgroundColor: t.dark ? 'rgba(53,185,164,0.16)' : 'rgba(14,124,107,0.1)', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
-    greet: { color: t.label, fontSize: 27, fontWeight: '700', textAlign: 'center', letterSpacing: -0.5 },
-    greetSub: { color: t.label2, fontSize: 15, lineHeight: 21, textAlign: 'center', marginTop: 6, paddingHorizontal: 18 },
-    example: { backgroundColor: t.card, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 15, borderWidth: StyleSheet.hairlineWidth, borderColor: t.sep },
-    exampleTxt: { color: t.label, fontSize: 14.5 },
+    heroMark: { width: 56, height: 56, borderRadius: 16, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 20 },
+    greet: { color: t.label, fontSize: 32, fontWeight: '700', textAlign: 'center', letterSpacing: -0.8 },
+    greetSub: { color: t.label2, fontSize: 15, lineHeight: 21, textAlign: 'center', marginTop: 8, paddingHorizontal: 24 },
+    sgGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 26, rowGap: 11 },
+    sgCard: { width: '48.5%', backgroundColor: t.card, borderRadius: 16, paddingVertical: 15, paddingHorizontal: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: t.sep },
+    sgTitle: { color: t.label, fontSize: 14.5, fontWeight: '600', marginTop: 11, letterSpacing: -0.2 },
+    sgSub: { color: t.label2, fontSize: 12.5, marginTop: 2 },
 
-    msgRow: { flexDirection: 'row', marginVertical: 6 },
-    userBubble: { maxWidth: '82%', borderRadius: 20, borderBottomRightRadius: 6, paddingVertical: 9, paddingHorizontal: 15, backgroundColor: t.bubbleUser },
-    userTxt: { fontSize: 16, lineHeight: 22, color: t.label },
-    aiRow: { marginVertical: 8, paddingHorizontal: 2 },
-    msgImage: { width: 200, height: 200, borderRadius: 14, marginVertical: 5 },
-    thinkingRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8, marginLeft: 4 },
-    thinking: { color: t.label3, fontSize: 13 },
+    userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 7 },
+    userBubble: { maxWidth: '82%', borderRadius: 22, borderBottomRightRadius: 7, paddingVertical: 10, paddingHorizontal: 15, backgroundColor: t.bubbleUser },
+    userTxt: { fontSize: 16, lineHeight: 22, color: t.onBubbleUser },
+    aiRow: { marginVertical: 10 },
+    aiHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 7 },
+    aiAvatar: { width: 24, height: 24, borderRadius: 8, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center' },
+    aiName: { color: t.label2, fontSize: 13, fontWeight: '600', letterSpacing: 0.1 },
+    aiBody: { paddingLeft: 2 },
+    msgImage: { width: 196, height: 196, borderRadius: 16, marginVertical: 4 },
+    thinking: { color: t.label3, fontSize: 14 },
 
-    attachRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: t.card, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.sep },
-    attachThumb: { width: 38, height: 38, borderRadius: 9 },
-    attachLabel: { flex: 1, color: t.label2, fontSize: 13.5 },
-    attachX: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+    attachRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 14, marginBottom: 2, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: t.fill, borderRadius: 14 },
+    attachThumb: { width: 36, height: 36, borderRadius: 9 },
+    attachLabel: { flex: 1, color: t.label2, fontSize: 13.5, fontWeight: '500' },
+    attachX: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
 
-    inputBar: { paddingHorizontal: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.sep, backgroundColor: t.card },
-    inputWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-    photoBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-    input: { flex: 1, minHeight: 40, maxHeight: 120, backgroundColor: t.fill, borderRadius: 20, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, color: t.label, fontSize: 16 },
-    sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+    inputBar: { paddingHorizontal: 12, paddingTop: 8, backgroundColor: t.bg },
+    inputPill: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: t.fill, borderRadius: 26, paddingLeft: 6, paddingRight: 6, paddingVertical: 5, minHeight: 48 },
+    plusBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+    input: { flex: 1, maxHeight: 120, color: t.label, fontSize: 16, lineHeight: 21, paddingHorizontal: 6, paddingTop: Platform.OS === 'ios' ? 9 : 6, paddingBottom: Platform.OS === 'ios' ? 9 : 6 },
+    sendBtn: { padding: 1, alignSelf: 'flex-end' },
+    sendCircle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
 
-    drawerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', flexDirection: 'row' },
-    drawer: { width: '80%', maxWidth: 320, backgroundColor: t.card, paddingHorizontal: 14, paddingBottom: 20 },
-    drawerHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.sep },
-    drawerTitle: { color: t.label, fontSize: 20, fontWeight: '700' },
-    newChatBtn: { flexDirection: 'row', alignItems: 'center' },
-    chatRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 12, marginTop: 4 },
-    chatRowTitle: { color: t.label, fontSize: 15, fontWeight: '500' },
-    chatRowTime: { color: t.label2, fontSize: 12, marginTop: 2 },
+    drawerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', flexDirection: 'row' },
+    drawer: { width: '82%', maxWidth: 330, backgroundColor: t.bg, paddingHorizontal: 14, paddingBottom: 20, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: t.sep },
+    drawerHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, marginBottom: 4 },
+    drawerTitle: { color: t.label, fontSize: 22, fontWeight: '700', letterSpacing: -0.4 },
+    newChatBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 100, backgroundColor: t.fill },
+    newChatTxt: { color: t.label, fontSize: 14, fontWeight: '600' },
+    chatRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 13, marginTop: 3 },
+    chatRowTitle: { color: t.label, fontSize: 15, fontWeight: '500', letterSpacing: -0.1 },
+    chatRowTime: { color: t.label3, fontSize: 12, marginTop: 2 },
 
-    copied: { position: 'absolute', alignSelf: 'center', backgroundColor: t.dark ? '#2C2C2E' : '#1C1C1E', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12 },
+    copied: { position: 'absolute', alignSelf: 'center', backgroundColor: t.dark ? '#2C2C2E' : '#1D1D1F', paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12 },
     copiedTxt: { color: '#fff', fontSize: 13.5, fontWeight: '500' },
   });
 }

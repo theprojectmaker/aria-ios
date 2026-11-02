@@ -3,15 +3,15 @@ import ChatUI from './ChatUI';
 import { useTheme } from './theme';
 import { newChat, titleFrom } from './chatStore';
 
-const CHAT_EXAMPLES = [
-  'Explain quantum entanglement like I’m five.',
-  'Write a warm, short thank-you note to a mentor.',
-  'Give me 5 dinner ideas with chicken and rice.',
-  'Help me outline a 3-paragraph cover letter.',
-];
-
 const DEMO_REPLY =
-  "Here's a **preview** of Aria. On your phone I run completely on-device — no internet needed — and I can:\n\n- answer questions and help you write\n- keep your **saved chats**\n- look at **photos** on the Vision tab\n\nInstall Aria to use the real offline AI.";
+  "Here's a **preview** of Aria. On your phone I run completely on-device — no internet — and I can:\n\n- answer questions and help you write\n- look at a **photo** and tell you what's in it or read its text\n- keep your **saved chats**\n\nInstall Aria to use the real offline AI.";
+
+const DEMO_VISION =
+  "I can see **lakeside** (86% sure) — it might also be valley, mountain, seashore.\n\n**Text I can read:**\nNORTH TRAIL\n2.4 mi";
+
+const DEMO_IMG =
+  'data:image/svg+xml;utf8,' + encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><rect width='160' height='160' fill='#CFD6DA'/><rect y='104' width='160' height='56' fill='#9AA6AC'/><circle cx='120' cy='40' r='18' fill='#EDEDED'/><path d='M0 120 L48 80 L84 112 L116 86 L160 120 L160 160 L0 160 Z' fill='#5A646B'/></svg>");
 
 export default function ChatWeb() {
   const t = useTheme();
@@ -19,6 +19,7 @@ export default function ChatWeb() {
   const [activeId, setActiveId] = useState(() => null);
   const [input, setInput] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [attachedUri, setAttachedUri] = useState(null);
   const timer = useRef(null);
 
   const id = activeId || chats[0].id;
@@ -36,16 +37,17 @@ export default function ChatWeb() {
       i += 1;
       setMessages([...base, { role: 'assistant', text: words.slice(0, i).join(' '), streaming: i < words.length }]);
       if (i >= words.length) { clearInterval(timer.current); setGenerating(false); }
-    }, 40);
+    }, 38);
   };
 
   const onSend = () => {
     const text = input.trim();
-    if (!text || generating) return;
-    const base = [...messages, { role: 'user', text }];
+    if ((!text && !attachedUri) || generating) return;
+    const isPhoto = !!attachedUri;
+    const base = [...messages, { role: 'user', text: text || '', imageUri: attachedUri }];
     setMessages([...base, { role: 'assistant', text: '', streaming: true }]);
-    setInput('');
-    setTimeout(() => stream(DEMO_REPLY, base), 250);
+    setInput(''); setAttachedUri(null);
+    setTimeout(() => stream(isPhoto ? DEMO_VISION : DEMO_REPLY, base), 220);
   };
 
   const onNewChat = () => { const c = newChat(); setChats((cs) => [c, ...cs]); setActiveId(c.id); };
@@ -63,10 +65,11 @@ export default function ChatWeb() {
       status={{ state: 'ready', label: 'Preview (demo)' }}
       onDownload={() => {}}
       onPickExample={(ex) => setInput(ex)}
+      onPickImage={() => setAttachedUri(DEMO_IMG)}
+      attachedUri={attachedUri}
+      onClearImage={() => setAttachedUri(null)}
       banner="Preview — the real on-device AI runs in the installed app"
       title={active.title}
-      greetTitle="How can I help?"
-      examples={CHAT_EXAMPLES}
       chats={chats}
       activeChatId={id}
       onNewChat={onNewChat}
