@@ -51,15 +51,24 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   const small = (models.llm.QWEN3_0_6B && (models.llm.QWEN3_0_6B.DEFAULT || models.llm.QWEN3_0_6B.XNNPACK_8DA4W)) || models.llm.QWEN3_1_7B.DEFAULT;
   const mid = (models.llm.LFM2_5_1_2B && models.llm.LFM2_5_1_2B.DEFAULT) || small;
   const big = models.llm.QWEN3_1_7B.DEFAULT;
+  // Tiny models that fit a low-RAM device (e.g. iPad 9th gen, 3 GB).
+  const tinyA = (models.llm.SMOLLM2_360M && models.llm.SMOLLM2_360M.DEFAULT) || (models.llm.LFM2_5_350M && models.llm.LFM2_5_350M.DEFAULT) || small;
+  const tinyB = (models.llm.SMOLLM2_135M && models.llm.SMOLLM2_135M.DEFAULT) || tinyA;
   const isPad = Platform.OS === 'ios' && Platform.isPad;
   // Chain of models to try: the user's pick first, then smaller fallbacks if the
-  // device can't load it (OOM shows up as llm.error). iPads start small.
+  // device can't load it (OOM shows up as llm.error). iPads have far less usable
+  // RAM, so "Automatic" starts with a tiny model that actually loads there.
   const chainFor = (p) => {
-    if (isPad) return [small];
-    if (p === 'light') return [small];
-    if (p === 'balanced') return [mid, small];
-    if (p === 'smart') return [big, mid, small];
-    return [big, mid, small]; // auto
+    if (isPad) {
+      if (p === 'smart') return [big, mid, small, tinyA, tinyB];
+      if (p === 'balanced') return [mid, small, tinyA, tinyB];
+      if (p === 'light') return [small, tinyA, tinyB];
+      return [tinyA, tinyB]; // auto — fits an iPad 9th gen
+    }
+    if (p === 'light') return [small, tinyA];
+    if (p === 'balanced') return [mid, small, tinyA];
+    if (p === 'smart') return [big, mid, small, tinyA];
+    return [big, mid, small, tinyA]; // iPhone auto
   };
   const CHAIN = chainFor(pref);
   const [tier, setTier] = useState((startSafe && pref === 'auto') ? CHAIN.length - 1 : 0);
