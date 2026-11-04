@@ -96,6 +96,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   const [visionStatus, setVisionStatus] = useState(null);
   const [visionReady, setVisionReady] = useState(false);
   const [visionFailed, setVisionFailed] = useState(false);
+  const [visionArmed, setVisionArmed] = useState(false);
   const attachRef = useRef(null);
   const analyzeRef = useRef(null);
 
@@ -125,6 +126,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
         : await IP.launchImageLibraryAsync({ mediaTypes: (IP.MediaTypeOptions && IP.MediaTypeOptions.Images) || 'images', quality: 1 });
       if (res.canceled || !res.assets || !res.assets[0]) return;
       const uri = res.assets[0].uri;
+      setVisionArmed(true); // load the vision models only now, so they don't fight the chat model for memory
       setAttachedUri(uri);
       setPreparing(true);
       const { uriToImageBuffer } = require('./imageBuffer');
@@ -200,14 +202,17 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
 
   return (
     <>
-      {/* Vision loads eagerly, alongside the chat model, in its own error
-          boundary so a vision failure can never take down the chat. */}
-      <Boundary fallback={null} onError={() => setVisionFailed(true)}>
-        <VisionEngine
-          onStatus={setVisionStatus}
-          onReady={(fn) => { analyzeRef.current = fn; setVisionReady(true); }}
-        />
-      </Boundary>
+      {/* Vision loads only once a photo is added, so the CV models never fight
+          the chat model for memory (critical on low-RAM iPads). Its own error
+          boundary keeps a vision failure from ever taking down the chat. */}
+      {visionArmed && (
+        <Boundary fallback={null} onError={() => setVisionFailed(true)}>
+          <VisionEngine
+            onStatus={setVisionStatus}
+            onReady={(fn) => { analyzeRef.current = fn; setVisionReady(true); }}
+          />
+        </Boundary>
+      )}
       <ChatUI
         t={t}
         messages={messages}
