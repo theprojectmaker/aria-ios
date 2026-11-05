@@ -106,8 +106,10 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   function clearAttach() { attachRef.current = null; setAttachedUri(null); }
 
   const atLast = tier >= CHAIN.length - 1;
+  const errMsg = llm.error ? (llm.error.message || String(llm.error)) : '';
+  const diag = `${Platform.OS}${isPad ? ' iPad' : ' phone'} · model ${Math.min(tier, CHAIN.length - 1) + 1}/${CHAIN.length} · ${pref} · dl ${Math.round((llm.downloadProgress || 0) * 100)}%${errMsg ? ' · ' + errMsg.slice(0, 220) : ''}`;
   const status = (() => {
-    if (llm.error && atLast) return { state: 'unavailable', label: 'Could not load model' };
+    if (llm.error && atLast) return { state: 'unavailable', label: 'Could not load model', detail: diag };
     if (llm.error) return { state: 'loading', label: 'Trying a lighter model…' };
     if (!llm.isReady && (llm.downloadProgress || 0) < 1) return { state: 'downloading', progress: llm.downloadProgress || 0, label: `${tier > 0 ? 'Lighter model ' : 'Downloading '}${Math.round((llm.downloadProgress || 0) * 100)}%` };
     if (!llm.isReady) return { state: 'loading', label: 'Getting ready…' };
@@ -116,6 +118,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     if (attachedUri && !visionReady) return { state: 'ready', label: 'Preparing vision…' };
     return { state: 'ready', label: 'On-device · ready' };
   })();
+  status.detail = diag; // long-press the header status, or the error card, to copy this
 
   const capture = useCallback(async (mode) => {
     try {

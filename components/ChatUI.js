@@ -195,13 +195,13 @@ export default function ChatUI({
           {hasChats ? (
             <Pressable onPress={() => setDrawer(true)} hitSlop={10} style={({ pressed }) => [s.headBtn, pressed && { opacity: 0.4 }]}><MenuIcon c={t.label} /></Pressable>
           ) : <View style={s.headBtn} />}
-          <View style={{ flex: 1, alignItems: 'center' }}>
+          <Pressable style={{ flex: 1, alignItems: 'center' }} onLongPress={() => status.detail && copy(status.detail)} hitSlop={6}>
             <Text style={s.hTitle} numberOfLines={1}>{title || 'Aria'}</Text>
             <View style={s.hStatus}>
               <View style={[s.dot, { backgroundColor: ready ? t.green : status.state === 'unavailable' ? t.label3 : t.label2 }]} />
               <Text style={s.hStatusTxt}>{status.label}</Text>
             </View>
-          </View>
+          </Pressable>
           {hasChats ? (
             <Pressable onPress={onNewChat} hitSlop={10} style={({ pressed }) => [s.headBtn, pressed && { opacity: 0.4 }]}><ComposeIcon c={t.label} /></Pressable>
           ) : <View style={s.headBtn} />}
@@ -241,11 +241,17 @@ export default function ChatUI({
                 </View>
                 <Text style={s.setupNote}>This can take up to a minute the first time.</Text>
               </>)}
-              {status.state === 'unavailable' && (<>
+              {status.state === 'unavailable' && status.label === 'Could not load model' ? (<>
+                <View style={[s.setupGlyph, { backgroundColor: t.fill }]}><AriaMark size={26} c={t.label2} /></View>
+                <Text style={s.setupTitle}>Couldn’t load the AI</Text>
+                <Text style={s.setupBody}>The model wouldn’t load on this device. Try a lighter model in Settings — or copy the details below and send them over so it can be fixed.</Text>
+                {status.detail ? <Text style={s.diagBox} selectable>{status.detail}</Text> : null}
+                <Pressable onPress={() => status.detail && copy(status.detail)} style={({ pressed }) => [s.primaryBtn, pressed && { opacity: 0.8 }]}><Text style={s.primaryBtnTxt}>Copy details</Text></Pressable>
+              </>) : status.state === 'unavailable' ? (<>
                 <View style={[s.setupGlyph, { backgroundColor: t.fill }]}><AriaMark size={26} c={t.label2} /></View>
                 <Text style={s.setupTitle}>Runs in the installed app</Text>
                 <Text style={s.setupBody}>Aria’s on-device AI runs in the real app. This is a preview of the interface.</Text>
-              </>)}
+              </>) : null}
             </View>
           </View>
         )}
@@ -417,6 +423,7 @@ function styles(t) {
     setupTitle: { color: t.label, fontSize: 20, fontWeight: '700', marginBottom: 8, letterSpacing: -0.3 },
     setupBody: { color: t.label2, fontSize: 14.5, lineHeight: 21, textAlign: 'center' },
     setupNote: { color: t.label3, fontSize: 12.5, marginTop: 14, fontWeight: '500' },
+    diagBox: { color: t.label2, fontSize: 12, lineHeight: 17, marginTop: 14, padding: 10, borderRadius: 10, backgroundColor: t.fill, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', alignSelf: 'stretch' },
     primaryBtn: { marginTop: 20, borderRadius: 100, paddingVertical: 14, paddingHorizontal: 40, backgroundColor: t.accent, alignSelf: 'stretch', alignItems: 'center' },
     primaryBtnTxt: { color: t.onAccent, fontSize: 16, fontWeight: '600' },
     progressTrack: { height: 6, borderRadius: 3, backgroundColor: t.fill, width: '100%', marginTop: 18, overflow: 'hidden' },
