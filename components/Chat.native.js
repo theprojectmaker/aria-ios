@@ -76,8 +76,9 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   useEffect(() => { if (prefRef.current !== pref) { prefRef.current = pref; setTier(0); } }, [pref]);
   const MODEL = CHAIN[Math.min(tier, CHAIN.length - 1)];
   const llm = useLLMChatSession(MODEL, {
-    initialMessages: [{ role: 'system', content: SYSTEM_PROMPT }],
-    generationConfig: { maxNewTokens: 1024, temperature: 0.7 },
+    // Minimize memory on low-RAM iPads: no system-prompt prefill, shorter output.
+    initialMessages: isPad ? [] : [{ role: 'system', content: SYSTEM_PROMPT }],
+    generationConfig: { maxNewTokens: isPad ? 256 : 1024, temperature: 0.7 },
   });
 
   // If a model fails to load, drop to a smaller one (and, in auto mode, remember).
@@ -106,12 +107,13 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   function clearAttach() { attachRef.current = null; setAttachedUri(null); }
 
   const atLast = tier >= CHAIN.length - 1;
+  const dlFrac = Math.min(1, (llm.downloadProgress || 0) / 100); // executorch reports 0..100
   const errMsg = llm.error ? (llm.error.message || String(llm.error)) : '';
-  const diag = `${Platform.OS}${isPad ? ' iPad' : ' phone'} · model ${Math.min(tier, CHAIN.length - 1) + 1}/${CHAIN.length} · ${pref} · dl ${Math.round((llm.downloadProgress || 0) * 100)}%${errMsg ? ' · ' + errMsg.slice(0, 220) : ''}`;
+  const diag = `${Platform.OS}${isPad ? ' iPad' : ' phone'} · model ${Math.min(tier, CHAIN.length - 1) + 1}/${CHAIN.length} · ${pref} · dl ${Math.round(dlFrac * 100)}%${errMsg ? ' · ' + errMsg.slice(0, 220) : ''}`;
   const status = (() => {
     if (llm.error && atLast) return { state: 'unavailable', label: 'Could not load model', detail: diag };
     if (llm.error) return { state: 'loading', label: 'Trying a lighter model…' };
-    if (!llm.isReady && (llm.downloadProgress || 0) < 1) return { state: 'downloading', progress: llm.downloadProgress || 0, label: `${tier > 0 ? 'Lighter model ' : 'Downloading '}${Math.round((llm.downloadProgress || 0) * 100)}%` };
+    if (!llm.isReady && dlFrac < 1) return { state: 'downloading', progress: dlFrac, label: `${tier > 0 ? 'Lighter model ' : 'Downloading '}${Math.round(dlFrac * 100)}%` };
     if (!llm.isReady) return { state: 'loading', label: 'Getting ready…' };
     if (preparing) return { state: 'ready', label: 'Reading photo…' };
     if (attachedUri && visionStatus && visionStatus.state === 'downloading') return { state: 'ready', label: `Preparing vision ${Math.round((visionStatus.progress || 0) * 100)}%` };
