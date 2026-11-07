@@ -39,7 +39,7 @@ function parseThink(s) {
 class Boundary extends React.Component {
   state = { err: false };
   static getDerivedStateFromError() { return { err: true }; }
-  componentDidCatch() { if (this.props.onError) this.props.onError(); }
+  componentDidCatch(err) { if (this.props.onError) this.props.onError(err); }
   render() { return this.state.err ? this.props.fallback : this.props.children; }
 }
 
@@ -97,11 +97,21 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   const [visionStatus, setVisionStatus] = useState(null);
   const [visionReady, setVisionReady] = useState(false);
   const [visionFailed, setVisionFailed] = useState(false);
+  const [visionErr, setVisionErr] = useState('');
   const [visionArmed, setVisionArmed] = useState(false);
   const attachRef = useRef(null);
   const analyzeRef = useRef(null);
 
   useEffect(() => { setMessages(active.messages || []); setInput(''); clearAttach(); }, [activeChatId]);
+
+  // Vision models failing to load (an .error, not a thrown render error) is also a
+  // failure — mark it so the photo send reports the real reason instead of hanging.
+  useEffect(() => {
+    if (visionStatus && visionStatus.state === 'error') {
+      setVisionFailed(true);
+      if (visionStatus.detail) setVisionErr(visionStatus.detail);
+    }
+  }, [visionStatus]);
 
   const commit = (next) => { setMessages(next); persistMessages(next); };
   function clearAttach() { attachRef.current = null; setAttachedUri(null); }
@@ -163,10 +173,11 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
       setGenerating(true);
       let reply = '';
       if (visionFailed || !analyzeRef.current) {
-        reply = "I couldn’t start the photo reader on this device. Chat still works — ask me anything.";
+        const why = visionErr ? ` (${String(visionErr).slice(0, 160)})` : '';
+        reply = `I couldn’t start the photo reader${why}.${isPad ? ' This iPad may not have enough memory to run it.' : ''} Chat still works — ask me anything.`;
       } else {
         try { reply = await analyzeRef.current(img); }
-        catch (e) { reply = 'Sorry, I couldn’t read that photo. Try another one.'; }
+        catch (e) { reply = `Sorry, I couldn’t read that photo (${String((e && e.message) || e).slice(0, 160)}). Try another one.`; }
       }
       commit([...base, { role: 'assistant', text: reply, streaming: false }]);
       setGenerating(false);
@@ -199,7 +210,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     }
     commit([...base, { role: 'assistant', text: finalAnswer, think, streaming: false }]);
     setGenerating(false);
-  }, [input, generating, preparing, attachedUri, visionReady, visionFailed, messages, llm]);
+  }, [input, generating, preparing, attachedUri, visionReady, visionFailed, visionErr, messages, llm]);
 
   const onStop = useCallback(() => { try { llm.stop && llm.stop(); } catch (e) {} setGenerating(false); }, [llm]);
 
@@ -211,7 +222,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
           the chat model for memory (critical on low-RAM iPads). Its own error
           boundary keeps a vision failure from ever taking down the chat. */}
       {visionArmed && (
-        <Boundary fallback={null} onError={() => setVisionFailed(true)}>
+        <Boundary fallback={null} onError={(e) => { setVisionFailed(true); setVisionErr((e && (e.message || String(e))) || 'vision crashed'); }}>
           <VisionEngine
             onStatus={setVisionStatus}
             onReady={(fn) => { analyzeRef.current = fn; setVisionReady(true); }}

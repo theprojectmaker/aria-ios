@@ -39,7 +39,10 @@ export default function VisionEngine({ onStatus, onReady }) {
   useEffect(() => {
     if (!onStatus) return;
     const p = Math.min(cls.downloadProgress || 0, ocr.downloadProgress || 0) / 100; // executorch reports 0..100
-    if (cls.error || ocr.error) onStatus({ state: 'error' });
+    if (cls.error || ocr.error) {
+      const msg = (cls.error && (cls.error.message || String(cls.error))) || (ocr.error && (ocr.error.message || String(ocr.error))) || 'vision load failed';
+      onStatus({ state: 'error', detail: msg });
+    }
     else if (!ready && p < 1) onStatus({ state: 'downloading', progress: p });
     else if (!ready) onStatus({ state: 'loading' });
     else onStatus({ state: 'ready' });
