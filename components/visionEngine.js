@@ -32,8 +32,15 @@ export function composeVision(labels, textLines) {
 // Renders nothing; drives the CV models and reports readiness + an analyze() fn.
 export default function VisionEngine({ onStatus, onReady }) {
   const { models, useClassifier, useOpticalCharacterRecognizer } = require('react-native-executorch');
-  const cls = useClassifier(models.classification.EFFICIENTNET_V2_S.DEFAULT);
-  const ocr = useOpticalCharacterRecognizer(models.ocr.PPOCRV6_SMALL.DEFAULT);
+  // Resolve model configs defensively — executorch nests OCR under `ocr.PADDLE`
+  // and reading `.DEFAULT` off a missing node would crash the whole engine.
+  const clsNode = models.classification && models.classification.EFFICIENTNET_V2_S;
+  const ocrNode =
+    (models.ocr && models.ocr.PADDLE && models.ocr.PADDLE.PPOCRV6_SMALL) ||
+    (models.ocr && models.ocr.PPOCRV6_SMALL) ||
+    null;
+  const cls = useClassifier(clsNode && clsNode.DEFAULT);
+  const ocr = useOpticalCharacterRecognizer(ocrNode && ocrNode.DEFAULT);
   const ready = cls.isReady && ocr.isReady;
 
   useEffect(() => {
