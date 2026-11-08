@@ -62,7 +62,9 @@ export default function VisionEngine({ onStatus, onReady }) {
           cls.classify(img).catch(() => []),
           ocr.recognizeCharacters(img).catch(() => []),
         ]);
-        return composeVision(labels, textLines);
+        // Hand back the RAW detections so the chat model can turn them into a
+        // real, conversational answer; keep `summary` as a no-LLM fallback.
+        return { labels: labels || [], textLines: textLines || [], summary: composeVision(labels, textLines) };
       });
     }
   }, [ready]);

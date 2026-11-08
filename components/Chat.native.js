@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ChatUI from './ChatUI';
-import VisionEngine from './visionEngine';
+import VisionEngine, { pretty } from './visionEngine';
 import { useTheme } from './theme';
 import { loadChats, saveChats, newChat, titleFrom } from './chatStore';
 import { usePrefs } from './prefs';
@@ -162,24 +162,72 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     const img = attachRef.current;
     if (generating || preparing) return;
 
-    // Photo → on-device vision (classify + read text).
+    // Photo → read it with on-device vision, then let the chat model answer.
     if (img) {
       if (!visionFailed && (!visionReady || !analyzeRef.current)) return; // wait until ready
       const uri = attachedUri;
       setInput('');
       clearAttach();
       const base = [...messages, { role: 'user', text: text || '', imageUri: uri }];
-      commit([...base, { role: 'assistant', text: '', streaming: true }]);
-      setGenerating(true);
-      let reply = '';
+
+      // Vision engine never started — say so honestly instead of hanging.
       if (visionFailed || !analyzeRef.current) {
         const why = visionErr ? ` (${String(visionErr).slice(0, 160)})` : '';
-        reply = `I couldn’t start the photo reader${why}.${isPad ? ' This iPad may not have enough memory to run it.' : ''} Chat still works — ask me anything.`;
-      } else {
-        try { reply = await analyzeRef.current(img); }
-        catch (e) { reply = `Sorry, I couldn’t read that photo (${String((e && e.message) || e).slice(0, 160)}). Try another one.`; }
+        const reply = `I couldn’t start the photo reader${why}. Chat still works — ask me anything.`;
+        commit([...base, { role: 'assistant', text: reply, streaming: false }]);
+        return;
       }
-      commit([...base, { role: 'assistant', text: reply, streaming: false }]);
+
+      commit([...base, { role: 'assistant', text: '', think: '', streaming: true }]);
+      setGenerating(true);
+
+      let facts;
+      try { facts = await analyzeRef.current(img); }
+      catch (e) {
+        commit([...base, { role: 'assistant', text: `Sorry, I couldn’t read that photo (${String((e && e.message) || e).slice(0, 160)}). Try another one.`, streaming: false }]);
+        setGenerating(false);
+        return;
+      }
+
+      // No chat model ready → fall back to the plain detection summary.
+      if (!llm.isReady || !llm.sendMessage) {
+        commit([...base, { role: 'assistant', text: facts.summary, streaming: false }]);
+        setGenerating(false);
+        return;
+      }
+
+      // Turn the raw detections into a factual brief and let the LLM answer
+      // naturally (and field follow-up questions — the facts stay in context).
+      const detected = [];
+      const tops = (facts.labels || []).filter((c) => c && c.confidence > 0.04).slice(0, 5);
+      if (tops.length) detected.push('Objects most likely in the photo: ' + tops.map((c) => `${pretty(c.label)} (${Math.round(c.confidence * 100)}%)`).join(', ') + '.');
+      const lines = (facts.textLines || []).map((r) => (r && r.text ? r.text.trim() : '')).filter(Boolean);
+      if (lines.length) detected.push('Text read in the photo: "' + lines.slice(0, 20).join(' ') + '".');
+      if (!detected.length) detected.push('No clear objects or text could be detected.');
+      const q = text || 'Briefly describe this photo for me.';
+      const prompt =
+        'The user shared a photo. An on-device vision system analyzed it and found:\n' +
+        detected.join('\n') +
+        '\n\nThese detections can be imperfect. Using them, answer the user naturally and concisely. ' +
+        "If they asked a question, answer it; otherwise describe what's in the photo. " +
+        'Do not mention "detections", confidence, or percentages unless it helps.\n\nUser: ' + q;
+
+      let acc = '';
+      let errored = false;
+      try {
+        await llm.sendMessage(prompt, (tok) => {
+          acc += tok;
+          const { think, answer } = parseThink(acc);
+          setMessages([...base, { role: 'assistant', text: answer, think, streaming: true }]);
+        });
+      } catch (e) {
+        errored = true;
+        acc = acc || ('⚠️ ' + ((e && e.message) ? e.message : String(e)));
+      }
+      const { think, answer } = parseThink(acc);
+      let finalAnswer = answer;
+      if (!errored && !finalAnswer.trim()) finalAnswer = facts.summary; // fall back to the plain read
+      commit([...base, { role: 'assistant', text: finalAnswer, think, streaming: false }]);
       setGenerating(false);
       return;
     }
