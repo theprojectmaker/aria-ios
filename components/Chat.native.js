@@ -48,37 +48,38 @@ class Boundary extends React.Component {
 function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat, onOpenChat, onDeleteChat, onClearChats, startSafe }) {
   const { models, useLLMChatSession } = require('react-native-executorch');
   const { model: pref } = usePrefs();
-  const small = (models.llm.QWEN3_0_6B && (models.llm.QWEN3_0_6B.DEFAULT || models.llm.QWEN3_0_6B.XNNPACK_8DA4W)) || models.llm.QWEN3_1_7B.DEFAULT;
-  const mid = (models.llm.LFM2_5_1_2B && models.llm.LFM2_5_1_2B.DEFAULT) || small;
-  const big = models.llm.QWEN3_1_7B.DEFAULT;
-  // Tiny models that fit a low-RAM device (e.g. iPad 9th gen, 3 GB).
-  const tinyA = (models.llm.SMOLLM2_360M && models.llm.SMOLLM2_360M.DEFAULT) || (models.llm.LFM2_5_350M && models.llm.LFM2_5_350M.DEFAULT) || small;
-  const tinyB = (models.llm.SMOLLM2_135M && models.llm.SMOLLM2_135M.DEFAULT) || tinyA;
+  const dflt = (m) => (m && (m.DEFAULT || m.XNNPACK_8DA4W)) || null;
+  const small = dflt(models.llm.QWEN3_0_6B) || models.llm.QWEN3_1_7B.DEFAULT; // ~0.5 GB
+  const mid = models.llm.QWEN3_1_7B.DEFAULT;                                   // ~1.2 GB
+  const huge = dflt(models.llm.QWEN3_4B) || mid;                               // ~2.8 GB, smartest
+  // Tiny models that still load on a genuinely low-RAM device (e.g. 3 GB iPad).
+  const tinyA = dflt(models.llm.SMOLLM2_360M) || dflt(models.llm.LFM2_5_350M) || small;
+  const tinyB = dflt(models.llm.SMOLLM2_135M) || tinyA;
   const isPad = Platform.OS === 'ios' && Platform.isPad;
-  // Chain of models to try: the user's pick first, then smaller fallbacks if the
-  // device can't load it (OOM shows up as llm.error). iPads have far less usable
-  // RAM, so "Automatic" starts with a tiny model that actually loads there.
+  // One chain per preference: try the chosen model, then smaller ones if the
+  // device can't load/run it (OOM surfaces as llm.error and we drop a rung).
+  // iPads are NOT special-cased any more — a modern iPad (e.g. 11th gen) has
+  // plenty of RAM, so it gets the same real models and only falls back if it
+  // genuinely can't fit one.
   const chainFor = (p) => {
-    if (isPad) {
-      if (p === 'smart') return [big, mid, small, tinyA, tinyB];
-      if (p === 'balanced') return [mid, small, tinyA, tinyB];
-      if (p === 'light') return [small, tinyA, tinyB];
-      return [tinyA, tinyB]; // auto — fits an iPad 9th gen
-    }
     if (p === 'light') return [small, tinyA];
     if (p === 'balanced') return [mid, small, tinyA];
-    if (p === 'smart') return [big, mid, small, tinyA];
-    return [big, mid, small, tinyA]; // iPhone auto
+    if (p === 'smart') return [huge, mid, small, tinyA]; // 4B, degrades if it won't fit
+    return [mid, small, tinyA, tinyB];                   // auto: strong default, tiny floor
   };
   const CHAIN = chainFor(pref);
-  const [tier, setTier] = useState((startSafe && pref === 'auto') ? CHAIN.length - 1 : 0);
+  const safeStart = Math.max(0, CHAIN.indexOf(small)); // a device flagged weak starts at 0.6B, not 135M
+  const [tier, setTier] = useState((startSafe && pref === 'auto') ? safeStart : 0);
   const prefRef = useRef(pref);
   useEffect(() => { if (prefRef.current !== pref) { prefRef.current = pref; setTier(0); } }, [pref]);
   const MODEL = CHAIN[Math.min(tier, CHAIN.length - 1)];
+  // Only trim memory once we've fallen back to a tiny model (a weak device).
+  // Capable devices — modern iPads included — get the full system prompt and
+  // longer answers.
+  const lean = MODEL === tinyA || MODEL === tinyB;
   const llm = useLLMChatSession(MODEL, {
-    // Minimize memory on low-RAM iPads: no system-prompt prefill, shorter output.
-    initialMessages: isPad ? [] : [{ role: 'system', content: SYSTEM_PROMPT }],
-    generationConfig: { maxNewTokens: isPad ? 256 : 1024, temperature: 0.7 },
+    initialMessages: lean ? [] : [{ role: 'system', content: SYSTEM_PROMPT }],
+    generationConfig: { maxNewTokens: lean ? 320 : 1024, temperature: 0.7 },
   });
 
   // If a model fails to load, drop to a smaller one (and, in auto mode, remember).

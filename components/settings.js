@@ -7,10 +7,10 @@ const Close = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d
 const Check = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M5 13l4 4L19 7" fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" /></Svg>;
 
 export const MODEL_OPTIONS = [
-  { key: 'auto', title: 'Automatic', sub: 'Recommended — uses the best model your phone can run' },
-  { key: 'light', title: 'Lighter', sub: 'Qwen3 0.6B · ~0.5 GB · fastest, runs on any phone' },
-  { key: 'balanced', title: 'Balanced', sub: 'LFM2.5 1.2B · ~0.7 GB · a good mix of speed and quality' },
-  { key: 'smart', title: 'Smarter', sub: 'Qwen3 1.7B · ~1.2 GB · best answers, needs a newer phone' },
+  { key: 'auto', title: 'Automatic', sub: 'Recommended — picks the best model your device can run' },
+  { key: 'light', title: 'Lighter', sub: 'Qwen3 0.6B · ~0.5 GB · fastest, runs on anything' },
+  { key: 'balanced', title: 'Balanced', sub: 'Qwen3 1.7B · ~1.2 GB · smarter, good on most devices' },
+  { key: 'smart', title: 'Smarter', sub: 'Qwen3 4B · ~2.8 GB · most knowledge, newer iPhone/iPad only' },
 ];
 const THEME_OPTIONS = [
   { key: 'system', title: 'System', sub: 'Match your phone' },
