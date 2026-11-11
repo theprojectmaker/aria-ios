@@ -197,21 +197,37 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
         return;
       }
 
-      // Turn the raw detections into a factual brief and let the LLM answer
-      // naturally (and field follow-up questions — the facts stay in context).
-      const detected = [];
-      const tops = (facts.labels || []).filter((c) => c && c.confidence > 0.04).slice(0, 5);
-      if (tops.length) detected.push('Objects most likely in the photo: ' + tops.map((c) => `${pretty(c.label)} (${Math.round(c.confidence * 100)}%)`).join(', ') + '.');
+      // Build what we read, then pick the right job: a worksheet/document gets
+      // SOLVED; a scene/object gets described.
       const lines = (facts.textLines || []).map((r) => (r && r.text ? r.text.trim() : '')).filter(Boolean);
-      if (lines.length) detected.push('Text read in the photo: "' + lines.slice(0, 20).join(' ') + '".');
-      if (!detected.length) detected.push('No clear objects or text could be detected.');
-      const q = text || 'Briefly describe this photo for me.';
-      const prompt =
-        'The user shared a photo. An on-device vision system analyzed it and found:\n' +
-        detected.join('\n') +
-        '\n\nThese detections can be imperfect. Using them, answer the user naturally and concisely. ' +
-        "If they asked a question, answer it; otherwise describe what's in the photo. " +
-        'Do not mention "detections", confidence, or percentages unless it helps.\n\nUser: ' + q;
+      const ocrText = lines.join('\n');
+      const tops = (facts.labels || []).filter((c) => c && c.confidence > 0.04).slice(0, 5);
+      // Enough readable text → it's a worksheet, problem set, or document.
+      const isDocument = lines.length >= 2 || ocrText.replace(/\s/g, '').length >= 24;
+      let prompt;
+      if (isDocument) {
+        prompt =
+          'The user photographed a worksheet, problem set, or document. This is the text read from it by OCR ' +
+          '(it may contain small recognition errors — silently fix obvious ones like 0/O or l/1):\n"""\n' +
+          ocrText.slice(0, 2200) + '\n"""\n\n' +
+          (text
+            ? 'The user asks: ' + text + '\nAnswer using the text above.'
+            : 'Work through it. For EACH question or problem, give the answer clearly, numbered to match ' +
+              '(e.g. "1. ..."). Show brief working for math or science. If a part is unreadable, say which. ' +
+              'Be accurate and concise.');
+      } else {
+        const detected = [];
+        if (tops.length) detected.push('Objects most likely in the photo: ' + tops.map((c) => `${pretty(c.label)} (${Math.round(c.confidence * 100)}%)`).join(', ') + '.');
+        if (ocrText) detected.push('Text read in the photo: "' + ocrText.slice(0, 200) + '".');
+        if (!detected.length) detected.push('No clear objects or text could be detected.');
+        const q = text || 'Briefly describe this photo for me.';
+        prompt =
+          'The user shared a photo. An on-device vision system analyzed it and found:\n' +
+          detected.join('\n') +
+          '\n\nThese detections can be imperfect. Using them, answer the user naturally and concisely. ' +
+          "If they asked a question, answer it; otherwise describe what's in the photo. " +
+          'Do not mention "detections", confidence, or percentages unless it helps.\n\nUser: ' + q;
+      }
 
       let acc = '';
       let errored = false;

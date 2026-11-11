@@ -59,8 +59,8 @@ const ICONS = { pencil: PencilSq, bulb: BulbIcon, camera: CamIcon, textscan: Tex
 const DEFAULT_SUGGESTIONS = [
   { key: 'write', title: 'Help me write', sub: 'a note, email or draft', icon: 'pencil', kind: 'text', value: 'Help me write ' },
   { key: 'explain', title: 'Explain a topic', sub: 'simply and clearly', icon: 'bulb', kind: 'text', value: 'Explain ' },
+  { key: 'worksheet', title: 'Solve a worksheet', sub: 'snap it, get answers', icon: 'textscan', kind: 'photo' },
   { key: 'identify', title: 'Identify a photo', sub: 'see what’s in it', icon: 'camera', kind: 'photo' },
-  { key: 'readtext', title: 'Read text in a photo', sub: 'signs, notes, labels', icon: 'textscan', kind: 'photo' },
 ];
 
 function timeAgo(ts) {
