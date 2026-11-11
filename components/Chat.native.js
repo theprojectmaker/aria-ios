@@ -6,6 +6,7 @@ import VisionEngine, { pretty } from './visionEngine';
 import { useTheme } from './theme';
 import { loadChats, saveChats, newChat, titleFrom } from './chatStore';
 import { usePrefs } from './prefs';
+import { loadKnowledge, knowledgeReady, buildContext } from './knowledge';
 
 const ENABLED_KEY = 'aria.ai.enabled.v1';
 
@@ -47,7 +48,7 @@ class Boundary extends React.Component {
    lazily-mounted vision engine (classifier + OCR) that coexists with it. */
 function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat, onOpenChat, onDeleteChat, onClearChats, startSafe }) {
   const { models, useLLMChatSession } = require('react-native-executorch');
-  const { model: pref } = usePrefs();
+  const { model: pref, knowledge: kbPref } = usePrefs();
   const dflt = (m) => (m && (m.DEFAULT || m.XNNPACK_8DA4W)) || null;
   const small = dflt(models.llm.QWEN3_0_6B) || models.llm.QWEN3_1_7B.DEFAULT; // ~0.5 GB
   const mid = models.llm.QWEN3_1_7B.DEFAULT;                                   // ~1.2 GB
@@ -104,6 +105,10 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   const analyzeRef = useRef(null);
 
   useEffect(() => { setMessages(active.messages || []); setInput(''); clearAttach(); }, [activeChatId]);
+
+  // Load the offline knowledge pack once, after the first frame (it's a ~9 MB
+  // bundled corpus — eager loading would stall launch).
+  useEffect(() => { loadKnowledge(); }, []);
 
   // Vision models failing to load (an .error, not a thrown render error) is also a
   // failure — mark it so the photo send reports the real reason instead of hanging.
@@ -255,10 +260,29 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     const base = [...messages, { role: 'user', text }];
     commit([...base, { role: 'assistant', text: '', think: '', streaming: true }]);
     setGenerating(true);
+
+    // Pull relevant facts from the offline knowledge pack (when on + loaded) and
+    // give them to the model as reference — this is what lets a small on-device
+    // model answer real factual questions accurately.
+    let llmInput = text;
+    if (kbPref !== 'off' && knowledgeReady()) {
+      try {
+        const ctx = buildContext(text, { k: lean ? 2 : 3, budget: lean ? 450 : 750 });
+        if (ctx) {
+          llmInput =
+            'You have an offline reference library. Excerpts that may be relevant:\n' +
+            '<reference>\n' + ctx + '\n</reference>\n\n' +
+            'Use the reference above when it helps you answer accurately; otherwise rely on your own knowledge. ' +
+            'Do not mention the reference or say you were given excerpts. If you are unsure, say so.\n\n' +
+            'Question: ' + text;
+        }
+      } catch (e) {}
+    }
+
     let acc = '';
     let errored = false;
     try {
-      await llm.sendMessage(text, (tok) => {
+      await llm.sendMessage(llmInput, (tok) => {
         acc += tok;
         const { think, answer } = parseThink(acc);
         setMessages([...base, { role: 'assistant', text: answer, think, streaming: true }]);
@@ -275,7 +299,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     }
     commit([...base, { role: 'assistant', text: finalAnswer, think, streaming: false }]);
     setGenerating(false);
-  }, [input, generating, preparing, attachedUri, visionReady, visionFailed, visionErr, messages, llm]);
+  }, [input, generating, preparing, attachedUri, visionReady, visionFailed, visionErr, messages, llm, kbPref, lean]);
 
   const onStop = useCallback(() => { try { llm.stop && llm.stop(); } catch (e) {} setGenerating(false); }, [llm]);
 

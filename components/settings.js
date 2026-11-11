@@ -1,7 +1,7 @@
 import { Modal, View, Text, ScrollView, Pressable, StyleSheet, Alert, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { usePrefs, setTheme, setModelPref } from './prefs';
+import { usePrefs, setTheme, setModelPref, setKnowledge } from './prefs';
 
 const Close = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M6 6l12 12M18 6L6 18" stroke={c} strokeWidth={2} strokeLinecap="round" /></Svg>;
 const Check = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M5 13l4 4L19 7" fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" /></Svg>;
@@ -11,6 +11,10 @@ export const MODEL_OPTIONS = [
   { key: 'light', title: 'Lighter', sub: 'Qwen3 0.6B · ~0.5 GB · fastest, runs on anything' },
   { key: 'balanced', title: 'Balanced', sub: 'Qwen3 1.7B · ~1.2 GB · smarter, good on most devices' },
   { key: 'smart', title: 'Smarter', sub: 'Qwen3 4B · ~2.8 GB · most knowledge, newer iPhone/iPad only' },
+];
+const KNOWLEDGE_OPTIONS = [
+  { key: 'on', title: 'On', sub: 'Look up facts in a built-in offline encyclopedia (9,000+ topics)' },
+  { key: 'off', title: 'Off', sub: 'Answer from the model alone' },
 ];
 const THEME_OPTIONS = [
   { key: 'system', title: 'System', sub: 'Match your phone' },
@@ -58,6 +62,17 @@ export default function Settings({ t, visible, onClose, onClearChats }) {
             ))}
           </View>
           <Text style={s.note}>Switching downloads the model the first time you chat. On-device AI is private and works offline, but it’s smaller than cloud AI — expect the occasional mistake.</Text>
+
+          <Text style={s.section}>Knowledge</Text>
+          <View style={s.card}>
+            {KNOWLEDGE_OPTIONS.map((o, i) => (
+              <View key={o.key}>
+                {i > 0 ? <View style={s.sep} /> : null}
+                <Row title={o.title} sub={o.sub} selected={(prefs.knowledge || 'on') === o.key} onPress={() => setKnowledge(o.key)} />
+              </View>
+            ))}
+          </View>
+          <Text style={s.note}>The encyclopedia is bundled in the app and used to ground answers in real facts — no internet needed. It can’t cover everything, so Aria still fills gaps from the model.</Text>
 
           <Text style={s.section}>Appearance</Text>
           <View style={s.card}>
