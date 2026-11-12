@@ -46,7 +46,14 @@ eq('route reason', route('why is the sky blue').think, true);
 eq('route write', route('write an email to my teacher').kind, 'write');
 eq('route fast', route('why is the sky blue', 'fast').think, false);
 eq('route deep', route('hello', 'deep').think, true);
-eq('route fact', route('who painted the mona lisa').kind, 'fact');
+eq('route who', route('who painted the mona lisa').kind, 'fact');
+eq('route book', route('tell me about to kill a mockingbird').kind, 'explain');
+eq('route book think', route('tell me about to kill a mockingbird').think, true);
+eq('route summarize', route('summarize to kill a mockingbird').kind, 'explain');
+eq('route doc', route('what is the documentary planet earth about').kind, 'explain');
+eq('route write email', route('write an email to my teacher').kind, 'write');
+eq('route budget', route('explain the cold war').maxTokens >= 3000, true);
+eq('prompt depth', buildPrompt({ text: 'tell me about x', kind: 'explain' }).includes('250-450 words'), true);
 
 const p = buildPrompt({ text: 'speed of light?', refs: [{ title: 'Speed of light', text: 'c is 299,792,458 m/s' }], canToggleThinking: true, think: false });
 eq('prompt refs', p.includes('[1] Speed of light'), true);

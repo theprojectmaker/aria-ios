@@ -146,13 +146,15 @@ export function isPureMath(text) {
 
 /* ── routing ──────────────────────────────────────────────────────────── */
 
-const DEEP_RE = /\b(why|how come|prove|derive|explain (?:how|why|step)|step[- ]by[- ]step|solve|show (?:your|the) work|word problem|compare|analy[sz]e|reason|figure out|what would happen|if .* then|calculate|equation|integral|derivative|probability|how many|how much|essay|argue|plan)\b/i;
-const WRITE_RE = /\b(write|draft|rewrite|reword|summari[sz]e|proofread|translate|email|letter|poem|story|essay|caption|paragraph|outline)\b/i;
+const DEEP_RE = /\b(why|how come|prove|derive|step[- ]by[- ]step|solve|show (?:your|the) work|word problem|compare|contrast|analy[sz]e|reason|figure out|what would happen|if .* then|calculate|equation|integral|derivative|probability|how many|how much|argue|pros and cons|difference between)\b/i;
+const WRITE_RE = /^(?:please\s+|can you\s+|could you\s+|help me\s+)?(write|draft|rewrite|reword|proofread|translate|compose|make me|create)\b|\b(write|draft) (?:me |a |an |my )/i;
+// Topics that deserve a rich, organised answer: books, films, people, events, concepts.
+const EXPLAIN_RE = /^(?:please\s+|can you\s+|could you\s+)?(tell me (?:about|everything)|explain|describe|summari[sz]e|give me (?:a |an )?(?:summary|overview|rundown)|overview|teach me|what (?:is|are|was|were|happened)|who (?:is|was|were)|how does|how do|how did)\b|\b(book|novel|story|movie|film|documentary|series|show|episode|play|poem|author|character|characters|theme|themes|plot|chapter|history of|biography|album|war|revolution|empire)\b/i;
 
 /**
  * Decide how to answer.
  * mode: 'auto' | 'deep' | 'fast'  (user preference)
- * returns { kind: 'math'|'write'|'reason'|'fact'|'chat', think: boolean, maxTokens }
+ * returns { kind: 'math'|'write'|'reason'|'explain'|'fact'|'chat', think, maxTokens }
  */
 export function route(text, mode = 'auto') {
   const t = String(text || '').trim();
@@ -160,19 +162,30 @@ export function route(text, mode = 'auto') {
   if (isPureMath(t)) kind = 'math';
   else if (WRITE_RE.test(t)) kind = 'write';
   else if (DEEP_RE.test(t) || t.length > 220) kind = 'reason';
-  else if (/^(who|what|when|where|which|define|meaning of|tell me about|explain)\b/i.test(t) || /\?$/.test(t)) kind = 'fact';
-  let think = kind === 'reason';
+  else if (EXPLAIN_RE.test(t)) kind = 'explain';
+  else if (/^(who|what|when|where|which|define|meaning of)\b/i.test(t) || /\?$/.test(t)) kind = 'fact';
+  let think = kind === 'reason' || kind === 'explain';
   if (mode === 'deep') think = kind !== 'math';
   if (mode === 'fast') think = false;
-  const maxTokens = think ? 1536 : kind === 'write' ? 900 : kind === 'chat' ? 400 : 700;
+  // Budgets include thinking tokens — leave plenty of room for a full answer after it.
+  const maxTokens = think ? 3072 : kind === 'write' ? 1200 : kind === 'explain' ? 1400 : kind === 'chat' ? 500 : 1000;
   return { kind, think, maxTokens };
 }
+
+// What a good answer looks like for each kind (small models need this said).
+export const DEPTH = {
+  explain: 'Give a rich, well-organised answer of about 250-450 words. Start with a one- or two-sentence overview, then use short sections or bullet points for the important details (for a book or film: author/director, year, setting, plot summary, main characters, themes, why it matters; for a person, event or idea: background, key facts, significance). Finish with one interesting detail. Be specific — names, dates, examples.',
+  reason: 'Work it out carefully, then give a complete answer: the result first in bold, followed by the clear steps or reasons that get there.',
+  fact: 'Answer directly in the first sentence, then add two to four sentences of useful context or detail.',
+  write: 'Write it well: clear, natural, and ready to use.',
+};
 
 /* ── prompt building ──────────────────────────────────────────────────── */
 
 export const SYSTEM_PROMPT =
   'You are Aria, a brilliant, warm assistant that runs privately on the user\'s device with no internet. ' +
-  'Answer the actual question first, directly and correctly, then add only the detail that helps. ' +
+  'Answer the question directly first, then give a genuinely helpful, detailed explanation — important facts, examples and context. ' +
+  'Match the length to the question: a sentence or two for small talk, several paragraphs or organised bullet points for topics, books, films, people, events and concepts. Never reply with just a few words to a real question. ' +
   'Use short paragraphs, bullet points for lists, and **bold** for the key answer. ' +
   'For math and science, show the key steps and give units. ' +
   'When reference notes or verified calculations are provided, trust them over your memory. ' +
@@ -196,7 +209,7 @@ export function buildPrompt({ text, refs = [], calc: c = null, think = false, ca
   }
   if (parts.length) parts.push('Question: ' + text);
   else parts.push(text);
-  if (kind === 'write') parts.push('\n(Write it well: clear, natural, and ready to use.)');
+  if (DEPTH[kind]) parts.push('\n(' + DEPTH[kind] + ')');
   let msg = parts.join('\n');
   if (canToggleThinking) msg += think ? ' /think' : ' /no_think';
   return msg;

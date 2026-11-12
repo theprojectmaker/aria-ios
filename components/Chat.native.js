@@ -7,7 +7,7 @@ import { useTheme } from './theme';
 import { loadChats, saveChats, newChat, titleFrom } from './chatStore';
 import { usePrefs } from './prefs';
 import { loadKnowledge, knowledgeReady, retrieve } from './knowledge';
-import { route, calc, buildPrompt, parseThink, mathAnswer, SYSTEM_PROMPT } from './brain';
+import { route, calc, buildPrompt, parseThink, mathAnswer, SYSTEM_PROMPT, DEPTH } from './brain';
 import { chainIds, catalogEntry, resolveConfig, normalizeModelPref } from './catalog';
 import { loadHandbook, searchHandbook } from './handbook';
 import { initLibrary, libraryReady, librarySearch, libraryDefine } from './library';
@@ -165,6 +165,30 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     turnsRef.current += 1;
     const { think, answer } = parseThink(acc);
     let text = answer;
+
+    // Safety net: a real question that got an empty or few-word answer (the
+    // model spent its budget thinking, or was too terse) gets one follow-up
+    // turn asking for the full answer, with thinking switched off.
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const wantsDepth = ['explain', 'reason', 'fact', 'worksheet'].includes(kind);
+    if (!errored && !lean && wantsDepth && words < (kind === 'fact' ? 12 : 40)) {
+      const ask2 = (words === 0
+        ? 'Now write your complete answer to my question, using what you worked out. Do not stop early.'
+        : 'That was too short. Please give a complete, detailed answer with the important facts, examples and context.')
+        + (DEPTH[kind] ? ' ' + DEPTH[kind] : '') + (entry.think ? ' /no_think' : '');
+      let acc2 = '';
+      try {
+        await llm.sendMessage(ask2, (tok) => {
+          acc2 += tok;
+          const p = parseThink(acc2);
+          setMessages([...base, { role: 'assistant', text: p.answer, think, streaming: true, sources }]);
+        }, { maxNewTokens: 1400 });
+        turnsRef.current += 1;
+        const better = parseThink(acc2).answer.trim();
+        if (better.split(/\s+/).length > words) text = better;
+      } catch (e) { /* keep the first answer */ }
+    }
+
     if (errored) {
       const short = turnsRef.current <= 1 && !acc;
       text = (answer ? answer + '\n\n' : '') + (short
