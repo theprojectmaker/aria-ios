@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { usePrefs, setTheme, setModelPref, setKnowledge, setReasoning } from './prefs';
 import { MODEL_CATALOG, AUTO, normalizeModelPref } from './catalog';
+import { useLibrary, downloadLibrary, cancelLibrary, deleteLibrary, LIBRARY_AVAILABLE } from './library';
 
 const Close = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M6 6l12 12M18 6L6 18" stroke={c} strokeWidth={2} strokeLinecap="round" /></Svg>;
 const Check = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M5 13l4 4L19 7" fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" /></Svg>;
@@ -13,7 +14,7 @@ const REASONING_OPTIONS = [
   { key: 'fast', title: 'Fast', sub: 'Never pause to think — quickest replies' },
 ];
 const KNOWLEDGE_OPTIONS = [
-  { key: 'on', title: 'On', sub: 'Look up facts in a built-in offline encyclopedia (9,000+ topics)' },
+  { key: 'on', title: 'On', sub: 'Check the handbook, dictionary and encyclopedia before answering' },
   { key: 'off', title: 'Off', sub: 'Answer from the model alone' },
 ];
 const THEME_OPTIONS = [
@@ -26,6 +27,8 @@ export default function Settings({ t, visible, onClose, onClearChats }) {
   const insets = useSafeAreaInsets();
   const prefs = usePrefs();
   const modelPref = normalizeModelPref(prefs.model);
+  const lib = useLibrary();
+  const mb = (b) => Math.round((b || 0) / 1048576);
   const s = styles(t);
 
   const Row = ({ title, sub, selected, onPress, danger }) => (
@@ -85,6 +88,33 @@ export default function Settings({ t, visible, onClose, onClearChats }) {
             ))}
           </View>
 
+          <Text style={s.section}>Offline library</Text>
+          <View style={s.card}>
+            <View style={s.about}>
+              <Text style={s.aboutTitle}>{lib.status === 'ready' ? 'Library installed' : 'Make Aria know much more'}</Text>
+              <Text style={s.aboutBody}>{lib.status === 'ready'
+                ? `${(lib.docs || 0).toLocaleString('en-US')} encyclopedia articles and an 86,000-word dictionary, searched offline before Aria answers.`
+                : '79,000 encyclopedia articles + an 86,000-word dictionary that Aria checks before answering. One download (about 75 MB, Wi‑Fi recommended), then fully offline. Without it, Aria uses its built-in 9,000-topic encyclopedia and handbook.'}</Text>
+              {lib.status === 'downloading' ? (
+                <View style={{ marginTop: 14 }}>
+                  <View style={s.track}><View style={[s.fillBar, { width: `${Math.round((lib.progress || 0) * 100)}%` }]} /></View>
+                  <Text style={s.version}>{mb(lib.bytes)} of {mb(lib.total)} MB · {Math.round((lib.progress || 0) * 100)}%</Text>
+                </View>
+              ) : null}
+              {lib.status === 'error' ? <Text style={[s.version, { color: t.red }]}>Download stopped: {lib.error}. Tap Download to resume.</Text> : null}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                {lib.status === 'ready' ? (
+                  <Pressable onPress={() => Alert.alert('Delete the library?', 'Frees about 75 MB. You can download it again any time.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: deleteLibrary }])} style={({ pressed }) => [s.btn2, pressed && { opacity: 0.6 }]}><Text style={[s.btn2Txt, { color: t.red }]}>Delete library</Text></Pressable>
+                ) : lib.status === 'downloading' ? (
+                  <Pressable onPress={cancelLibrary} style={({ pressed }) => [s.btn2, pressed && { opacity: 0.6 }]}><Text style={s.btn2Txt}>Cancel</Text></Pressable>
+                ) : (
+                  <Pressable onPress={downloadLibrary} style={({ pressed }) => [s.btn1, pressed && { opacity: 0.8 }]}><Text style={s.btn1Txt}>{lib.status === 'error' ? 'Resume download' : 'Download library'}</Text></Pressable>
+                )}
+              </View>
+              {!LIBRARY_AVAILABLE ? <Text style={s.version}>Preview — the real download runs in the installed app.</Text> : null}
+            </View>
+          </View>
+
           <Text style={s.section}>Knowledge</Text>
           <View style={s.card}>
             {KNOWLEDGE_OPTIONS.map((o, i) => (
@@ -137,6 +167,12 @@ function styles(t) {
     rowTitle: { color: t.label, fontSize: 16, fontWeight: '500' },
     rowSub: { color: t.label2, fontSize: 13, marginTop: 2, lineHeight: 18 },
     rowMeta: { color: t.label3, fontSize: 12, marginTop: 3 },
+    track: { height: 6, borderRadius: 3, backgroundColor: t.fill, overflow: 'hidden' },
+    fillBar: { height: 6, borderRadius: 3, backgroundColor: t.accent },
+    btn1: { flex: 1, backgroundColor: t.accent, borderRadius: 100, paddingVertical: 12, alignItems: 'center' },
+    btn1Txt: { color: t.onAccent, fontSize: 15, fontWeight: '600' },
+    btn2: { flex: 1, backgroundColor: t.fill, borderRadius: 100, paddingVertical: 12, alignItems: 'center' },
+    btn2Txt: { color: t.label, fontSize: 15, fontWeight: '600' },
     tag: { backgroundColor: t.fill, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
     tagTxt: { color: t.label2, fontSize: 11, fontWeight: '700', letterSpacing: 0.2 },
     sep: { height: StyleSheet.hairlineWidth, backgroundColor: t.sep, marginLeft: 15 },

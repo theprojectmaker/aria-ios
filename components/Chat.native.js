@@ -9,6 +9,9 @@ import { usePrefs } from './prefs';
 import { loadKnowledge, knowledgeReady, retrieve } from './knowledge';
 import { route, calc, buildPrompt, parseThink, mathAnswer, SYSTEM_PROMPT } from './brain';
 import { chainIds, catalogEntry, resolveConfig, normalizeModelPref } from './catalog';
+import { loadHandbook, searchHandbook } from './handbook';
+import { initLibrary, libraryReady, librarySearch, libraryDefine } from './library';
+import { definitionTarget } from './libsearch';
 
 const ENABLED_KEY = 'aria.ai.enabled.v1';
 
@@ -90,7 +93,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     if (activeChatId !== firstChat.current) { firstChat.current = activeChatId; recapRef.current = recapOf(active.messages || []); }
   }, [activeChatId]);
 
-  useEffect(() => { loadKnowledge(); }, []);
+  useEffect(() => { loadKnowledge(); loadHandbook(); initLibrary(); }, []);
 
   useEffect(() => {
     if (visionStatus && visionStatus.state === 'error') {
@@ -189,9 +192,26 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     if (!llm.isReady || !llm.sendMessage) return;
     commit([...base, { role: 'assistant', text: '', think: '', streaming: true }]);
     setGenerating(true);
-    let refs = [];
-    if (kbOn && knowledgeReady() && r.kind !== 'chat' && r.kind !== 'write') {
-      try { refs = retrieve(text, lean ? 1 : 3).map((x) => ({ title: x.title, text: String(x.summary).slice(0, lean ? 420 : 760) })); } catch (e) {}
+    // Grounding, most exact first: dictionary (for "define X"), the Handbook
+    // (formulas, rules, tables), then the downloaded Library, else the
+    // built-in encyclopedia.
+    const refs = [];
+    const want = lean ? 1 : 3;
+    const cap = lean ? 420 : 760;
+    if (kbOn && r.kind !== 'write') {
+      try {
+        const word = definitionTarget(text);
+        if (word) { const d = await libraryDefine(word); if (d) refs.push({ title: 'Dictionary: ' + d.word, text: String(d.definition).slice(0, cap) }); }
+        if (r.kind !== 'chat' || word) {
+          for (const h of searchHandbook(text, lean ? 1 : 2)) if (refs.length < want) refs.push({ title: h.title, text: String(h.text).slice(0, cap) });
+          const more = want - refs.length;
+          if (more > 0) {
+            const hits = libraryReady() ? await librarySearch(text, more)
+              : (knowledgeReady() ? retrieve(text, more).map((x) => ({ title: x.title, text: x.summary })) : []);
+            for (const x of hits) if (!refs.find((y) => y.title === x.title)) refs.push({ title: x.title, text: String(x.text).slice(0, cap) });
+          }
+        }
+      } catch (e) {}
     }
     let c = calc(text);
     if (c && /^\d+\s*-\s*\d+$/.test(c.expr)) c = null; // phone numbers, year ranges, scores
