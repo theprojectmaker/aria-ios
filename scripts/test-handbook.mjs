@@ -6,7 +6,10 @@ const Q = [
   ['capital of japan', 'Japan'], ['what is the atomic mass of gold', 'Gold (Au)'], ['who was the 16th president', 'Abraham Lincoln'],
   ['capital of california', 'California (US state)'], ['population of india', 'India'], ['element 26', 'Iron (Fe)'],
   ['noble gases', 'Noble gases'], ['state capitals', 'US state capitals'], ['how many protons does carbon have', 'Carbon (C)'],
-  ['currency of mexico', 'Mexico'], ['when did hawaii become a state', 'Hawaii (US state)'], ['diatomic elements', 'The seven diatomic elements'],
+  ['currency of mexico', 'Mexico'], ['quadratic formula', 'Quadratic formula'], ['how do I find the area of a trapezoid', 'Area of a trapezoid'],
+  ['ohms law', "Ohm's law"], ['what is pv=nrt', 'Ideal gas law'], ['pythagorean theorem', 'Pythagorean theorem'], ['what is a comma splice', 'Comma splice'],
+  ['how many electoral votes to win', 'Electoral College'], ['what is a metaphor', 'Metaphor'], ['chain rule derivative', 'Chain rule'], ['what does the 19th amendment do', '19th Amendment'],
+  ['law of cosines', 'Law of cosines'], ['marbury v madison', 'Marbury v. Madison'], ['speed of light', 'Speed of light'], ['what is mitosis', 'Phases of mitosis'], ['when did hawaii become a state', 'Hawaii (US state)'], ['diatomic elements', 'The seven diatomic elements'],
 ];
 let ok = 0;
 for (const [q, want] of Q) {
