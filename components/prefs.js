@@ -3,18 +3,20 @@ import { useState, useEffect } from 'react';
 
 /* Tiny global preferences store (theme + model), backed by AsyncStorage.
    Components subscribe via usePrefs() and re-render when a pref changes. */
-let state = { theme: 'system', model: 'auto', knowledge: 'on' };
+let state = { theme: 'system', model: 'auto', knowledge: 'on', reasoning: 'auto' };
 const subs = new Set();
 const emit = () => subs.forEach((f) => f());
 
 export async function loadPrefs() {
   try {
-    const [th, md, kn] = await Promise.all([
+    const [th, md, kn, rs] = await Promise.all([
       AsyncStorage.getItem('aria.pref.theme'),
       AsyncStorage.getItem('aria.pref.model'),
       AsyncStorage.getItem('aria.pref.knowledge'),
+      AsyncStorage.getItem('aria.pref.reasoning'),
     ]);
     const next = { ...state };
+    if (rs) next.reasoning = rs;
     if (th) next.theme = th;
     if (md) next.model = md;
     if (kn) next.knowledge = kn;
@@ -34,6 +36,12 @@ export function setTheme(v) {
 export function setModelPref(v) {
   state = { ...state, model: v };
   AsyncStorage.setItem('aria.pref.model', v).catch(() => {});
+  emit();
+}
+
+export function setReasoning(v) {
+  state = { ...state, reasoning: v };
+  AsyncStorage.setItem('aria.pref.reasoning', v).catch(() => {});
   emit();
 }
 

@@ -1,16 +1,16 @@
 import { Modal, View, Text, ScrollView, Pressable, StyleSheet, Alert, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { usePrefs, setTheme, setModelPref, setKnowledge } from './prefs';
+import { usePrefs, setTheme, setModelPref, setKnowledge, setReasoning } from './prefs';
+import { MODEL_CATALOG, AUTO, normalizeModelPref } from './catalog';
 
 const Close = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M6 6l12 12M18 6L6 18" stroke={c} strokeWidth={2} strokeLinecap="round" /></Svg>;
 const Check = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M5 13l4 4L19 7" fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" /></Svg>;
 
-export const MODEL_OPTIONS = [
-  { key: 'auto', title: 'Automatic', sub: 'Recommended — picks the best model your device can run' },
-  { key: 'light', title: 'Lighter', sub: 'Qwen3 0.6B · ~0.5 GB · fastest, runs on anything' },
-  { key: 'balanced', title: 'Balanced', sub: 'Qwen3 1.7B · ~1.2 GB · smarter, good on most devices' },
-  { key: 'smart', title: 'Smarter', sub: 'Qwen3 4B · ~2.8 GB · most knowledge, newer iPhone/iPad only' },
+const REASONING_OPTIONS = [
+  { key: 'auto', title: 'Automatic', sub: 'Quick answers for simple questions, careful thinking for hard ones' },
+  { key: 'deep', title: 'Always think harder', sub: 'Slower, but more careful on every question' },
+  { key: 'fast', title: 'Fast', sub: 'Never pause to think — quickest replies' },
 ];
 const KNOWLEDGE_OPTIONS = [
   { key: 'on', title: 'On', sub: 'Look up facts in a built-in offline encyclopedia (9,000+ topics)' },
@@ -25,6 +25,7 @@ const THEME_OPTIONS = [
 export default function Settings({ t, visible, onClose, onClearChats }) {
   const insets = useSafeAreaInsets();
   const prefs = usePrefs();
+  const modelPref = normalizeModelPref(prefs.model);
   const s = styles(t);
 
   const Row = ({ title, sub, selected, onPress, danger }) => (
@@ -52,16 +53,37 @@ export default function Settings({ t, visible, onClose, onClearChats }) {
           <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => [s.closeBtn, pressed && { opacity: 0.5 }]}><Close c={t.label} /></Pressable>
         </View>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 30 }} showsVerticalScrollIndicator={false}>
-          <Text style={s.section}>Model</Text>
+          <Text style={s.section}>Model library</Text>
           <View style={s.card}>
-            {MODEL_OPTIONS.map((m, i) => (
-              <View key={m.key}>
-                {i > 0 ? <View style={s.sep} /> : null}
-                <Row title={m.title} sub={m.sub} selected={prefs.model === m.key} onPress={() => setModelPref(m.key)} />
+            <Row title={AUTO.name} sub={AUTO.pitch} selected={modelPref === 'auto'} onPress={() => setModelPref('auto')} />
+            {MODEL_CATALOG.map((m) => (
+              <View key={m.id}>
+                <View style={s.sep} />
+                <Pressable onPress={() => setModelPref(m.id)} style={({ pressed }) => [s.row, pressed && { backgroundColor: t.fill }]}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <Text style={s.rowTitle}>{m.name}</Text>
+                      {m.tags.map((tg) => <View key={tg} style={s.tag}><Text style={s.tagTxt}>{tg}</Text></View>)}
+                    </View>
+                    <Text style={s.rowSub}>{m.pitch}</Text>
+                    <Text style={s.rowMeta}>{m.base} · {m.size} · best with {m.ram}+ GB RAM</Text>
+                  </View>
+                  {modelPref === m.id ? <Check c={t.accent} /> : null}
+                </Pressable>
               </View>
             ))}
           </View>
-          <Text style={s.note}>Switching downloads the model the first time you chat. On-device AI is private and works offline, but it’s smaller than cloud AI — expect the occasional mistake.</Text>
+          <Text style={s.note}>A model downloads the first time you use it, then works offline. If a model is too big for this device, Aria automatically steps down to a smaller one.</Text>
+
+          <Text style={s.section}>Thinking</Text>
+          <View style={s.card}>
+            {REASONING_OPTIONS.map((o, i) => (
+              <View key={o.key}>
+                {i > 0 ? <View style={s.sep} /> : null}
+                <Row title={o.title} sub={o.sub} selected={(prefs.reasoning || 'auto') === o.key} onPress={() => setReasoning(o.key)} />
+              </View>
+            ))}
+          </View>
 
           <Text style={s.section}>Knowledge</Text>
           <View style={s.card}>
@@ -92,9 +114,9 @@ export default function Settings({ t, visible, onClose, onClearChats }) {
           <Text style={s.section}>About</Text>
           <View style={s.card}>
             <View style={s.about}>
-              <Text style={s.aboutTitle}>Aria runs entirely on your phone.</Text>
-              <Text style={s.aboutBody}>Your chats and photos never leave your device — there’s no account and no server. Everything works offline once the model is downloaded.</Text>
-              <Text style={s.version}>Version 1.0.0</Text>
+              <Text style={s.aboutTitle}>Aria runs entirely on this device.</Text>
+              <Text style={s.aboutBody}>Your chats and photos never leave it — no account, no server. Math is computed exactly by a built-in calculator, facts are checked against an offline library of 9,000+ topics, and photos are read on-device.</Text>
+              <Text style={s.version}>Aria 2.0 · library: Simple English Wikipedia (CC BY-SA)</Text>
             </View>
           </View>
         </ScrollView>
@@ -114,6 +136,9 @@ function styles(t) {
     row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 15 },
     rowTitle: { color: t.label, fontSize: 16, fontWeight: '500' },
     rowSub: { color: t.label2, fontSize: 13, marginTop: 2, lineHeight: 18 },
+    rowMeta: { color: t.label3, fontSize: 12, marginTop: 3 },
+    tag: { backgroundColor: t.fill, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+    tagTxt: { color: t.label2, fontSize: 11, fontWeight: '700', letterSpacing: 0.2 },
     sep: { height: StyleSheet.hairlineWidth, backgroundColor: t.sep, marginLeft: 15 },
     note: { color: t.label3, fontSize: 12.5, lineHeight: 18, marginTop: 10, marginHorizontal: 6 },
     about: { paddingVertical: 16, paddingHorizontal: 15 },

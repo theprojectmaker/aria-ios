@@ -11,6 +11,12 @@ function b64ToBytes(b64) {
   return out;
 }
 
+// The OCR recognizer reads each text line straight out of THIS buffer, so its
+// resolution is what decides whether a worksheet is readable. 384px (the old
+// value) turned printed text into mush; 1280px keeps 10–12pt print legible
+// while staying a few MB of RGB. The classifier resizes internally anyway.
+const OCR_WIDTH = 1280;
+
 async function toSmallPngBase64(uri) {
   const IM = require('expo-image-manipulator');
   const fmt = (IM.SaveFormat && IM.SaveFormat.PNG) || 'png';
@@ -18,13 +24,13 @@ async function toSmallPngBase64(uri) {
   try {
     if (IM.ImageManipulator && IM.ImageManipulator.manipulate) {
       const ctx = IM.ImageManipulator.manipulate(uri);
-      ctx.resize({ width: 384 });
+      ctx.resize({ width: OCR_WIDTH });
       const rendered = await ctx.renderAsync();
       const saved = await rendered.saveAsync({ format: fmt, base64: true });
       return saved.base64;
     }
   } catch (e) { /* fall through to legacy */ }
-  const res = await IM.manipulateAsync(uri, [{ resize: { width: 384 } }], { format: fmt, base64: true });
+  const res = await IM.manipulateAsync(uri, [{ resize: { width: OCR_WIDTH } }], { format: fmt, base64: true });
   return res.base64;
 }
 
