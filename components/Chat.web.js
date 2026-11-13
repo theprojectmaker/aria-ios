@@ -25,6 +25,7 @@ export default function ChatWeb() {
   const [generating, setGenerating] = useState(false);
   const [attachedUri, setAttachedUri] = useState(null);
   const timer = useRef(null);
+  const [chatModels, setChatModels] = useState({});
   const model = catalogEntry('qwen3-1.7b');
 
   const [sim, setSim] = useState({ state: 'downloading', progress: 0, label: 'Downloading Aria 0%', model });
@@ -36,7 +37,7 @@ export default function ChatWeb() {
       if (p >= 1) {
         clearInterval(dl);
         setSim({ state: 'loading', label: 'Getting ready…', model });
-        setTimeout(() => setSim({ state: 'ready', label: 'Preview · simulated model', model }), 1500);
+        setTimeout(() => setSim({ state: 'ready', label: 'Preview · simulated', model }), 1500);
       }
     }, 120);
     return () => clearInterval(dl);
@@ -89,7 +90,8 @@ export default function ChatWeb() {
       generating={generating} status={sim} onDownload={() => {}}
       onPickExample={(ex) => setInput(ex)} onPickImage={() => setAttachedUri(DEMO_IMG)}
       attachedUri={attachedUri} onClearImage={() => setAttachedUri(null)}
-      title={active.title} chats={chats} activeChatId={id}
+      title={active.title} chats={chats.map((c) => ({ ...c, model: chatModels[c.id] || c.model }))} activeChatId={id}
+      chatModel={chatModels[id] || 'auto'} onSetChatModel={(m) => setChatModels((x) => ({ ...x, [id]: m }))}
       onNewChat={onNewChat} onOpenChat={(cid) => setActiveId(cid)} onDeleteChat={onDeleteChat} onClearChats={onClearChats}
     />
   );

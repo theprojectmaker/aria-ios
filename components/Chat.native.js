@@ -8,10 +8,12 @@ import { loadChats, saveChats, newChat, titleFrom } from './chatStore';
 import { usePrefs } from './prefs';
 import { loadKnowledge, knowledgeReady, retrieve } from './knowledge';
 import { route, calc, buildPrompt, parseThink, mathAnswer, SYSTEM_PROMPT, DEPTH } from './brain';
-import { chainIds, catalogEntry, resolveConfig, normalizeModelPref } from './catalog';
+import { chainFor, catalogEntry, resolveConfig } from './catalog';
 import { loadHandbook, searchHandbook } from './handbook';
 import { initLibrary, libraryReady, librarySearch, libraryDefine } from './library';
 import { definitionTarget } from './libsearch';
+import { useAriaEngine } from './engine';
+import { useModels, downloadedIds, markFailed, refreshModels } from './models';
 
 const ENABLED_KEY = 'aria.ai.enabled.v1';
 
@@ -21,12 +23,6 @@ const DOWNLOAD = {
   sizeNote: 'About 1.2 GB · stays on your device',
 };
 
-// Model-side memory: the engine keeps every turn in its KV cache and offers no
-// way to trim it, so a long conversation eventually overflows the context and
-// every later message fails. We restart the session (cheap: files are on disk)
-// once it gets long, carrying a short recap of the visible chat forward.
-const MAX_MODEL_TURNS = 12;
-
 class Boundary extends React.Component {
   state = { err: false };
   static getDerivedStateFromError() { return { err: true }; }
@@ -34,41 +30,61 @@ class Boundary extends React.Component {
   render() { return this.state.err ? this.props.fallback : this.props.children; }
 }
 
-function recapOf(messages) {
-  const last = messages.filter((m) => m.text && !m.streaming).slice(-4);
-  if (!last.length) return '';
-  return 'Earlier in this conversation:\n' + last.map((m) => `${m.role === 'user' ? 'User' : 'Aria'}: ${String(m.text).replace(/\s+/g, ' ').slice(0, 280)}`).join('\n') + '\n\n';
+// The conversation as the model should remember it: plain text of each
+// finished turn (reference notes are only attached to the newest question).
+function historyOf(messages) {
+  const out = [];
+  for (const m of messages) {
+    if (m.streaming) continue;
+    if (m.role === 'user') {
+      const content = (m.imageUri ? '[I shared a photo] ' : '') + (m.text || '');
+      if (content.trim()) out.push({ role: 'user', content, key: m.text || '[photo]' });
+    } else if (m.role === 'assistant' && m.text && m.model !== 'Calculator') {
+      out.push({ role: 'assistant', content: m.text });
+    } else if (m.role === 'assistant' && m.model === 'Calculator') {
+      out.push({ role: 'assistant', content: m.text });
+    }
+  }
+  // The model expects user/assistant alternation; drop an unanswered user turn.
+  return out.filter((m, i) => !(m.role === 'user' && out[i + 1] && out[i + 1].role === 'user'));
 }
 
-function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat, onOpenChat, onDeleteChat, onClearChats, startSafe, onResetSession, carryRecap }) {
-  const { models, useLLMChatSession } = require('react-native-executorch');
+function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat, onOpenChat, onDeleteChat, onClearChats, onSetChatModel }) {
+  const { models } = require('react-native-executorch');
   const prefs = usePrefs();
-  const pref = normalizeModelPref(prefs.model);
+  const modelState = useModels();
   const kbOn = prefs.knowledge !== 'off';
   const reasoning = prefs.reasoning || 'auto';
 
-  const CHAIN = chainIds(pref).map(catalogEntry).filter(Boolean).filter((e) => resolveConfig(models, e));
-  const safeStart = Math.max(0, CHAIN.findIndex((e) => e.id === 'qwen3-0.6b'));
-  const [tier, setTier] = useState((startSafe && pref === 'auto') ? safeStart : 0);
-  const prefRef = useRef(pref);
-  useEffect(() => { if (prefRef.current !== pref) { prefRef.current = pref; setTier(0); } }, [pref]);
+  // This chat's model: locked per chat, or Automatic (smartest downloaded model).
+  const chatModel = active.model || 'auto';
+  const CHAIN = chainFor(chatModel, 'auto', downloadedIds(), modelState.failed)
+    .map(catalogEntry).filter(Boolean).filter((e) => resolveConfig(models, e));
   if (!CHAIN.length) CHAIN.push(catalogEntry('qwen3-1.7b'));
+  const chainKey = CHAIN.map((e) => e.id).join(',');
+  const [tier, setTier] = useState(0);
+  const chainRef = useRef(chainKey);
+  useEffect(() => { if (chainRef.current !== chainKey) { chainRef.current = chainKey; setTier(0); } }, [chainKey]);
   const entry = CHAIN[Math.min(tier, CHAIN.length - 1)];
-  const MODEL = resolveConfig(models, entry);
+  // Wait until we know what's downloaded, so Automatic doesn't load one model
+  // and then immediately switch to a better one.
+  const MODEL = modelState.loaded ? resolveConfig(models, entry) : undefined;
   const lean = entry.ram <= 2;
   const isPad = Platform.OS === 'ios' && Platform.isPad;
 
-  const llm = useLLMChatSession(MODEL, {
-    initialMessages: lean ? [] : [{ role: 'system', content: SYSTEM_PROMPT }],
+  const engine = useAriaEngine(MODEL, {
+    system: lean ? '' : SYSTEM_PROMPT,
     generationConfig: { maxNewTokens: lean ? 320 : 1024, temperature: 0.65 },
   });
 
+  // A model that fails to load here is remembered, and the chat steps down.
   useEffect(() => {
-    if (llm.error && tier < CHAIN.length - 1) {
-      setTier((x) => x + 1);
-      if (pref === 'auto') AsyncStorage.setItem('aria.model.safe.v1', '1').catch(() => {});
+    if (engine.error) {
+      markFailed(entry.id);
+      if (tier < CHAIN.length - 1) setTier((x) => x + 1);
     }
-  }, [llm.error]);
+  }, [engine.error]);
+  useEffect(() => { if (engine.isReady) refreshModels(); }, [engine.isReady]);
 
   const [messages, setMessages] = useState(active.messages || []);
   const [input, setInput] = useState('');
@@ -82,19 +98,9 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   const [visionArmed, setVisionArmed] = useState(false);
   const attachRef = useRef(null);
   const analyzeRef = useRef(null);
-  const recapRef = useRef(carryRecap || '');
-  const turnsRef = useRef(0);
-  const firstChat = useRef(activeChatId);
 
-  useEffect(() => {
-    setMessages(active.messages || []); setInput(''); clearAttach();
-    // Switching to another chat: the model still remembers the previous one, so
-    // give it this chat's recap with the next message instead.
-    if (activeChatId !== firstChat.current) { firstChat.current = activeChatId; recapRef.current = recapOf(active.messages || []); }
-  }, [activeChatId]);
-
+  useEffect(() => { setMessages(active.messages || []); setInput(''); clearAttach(); }, [activeChatId]);
   useEffect(() => { loadKnowledge(); loadHandbook(); initLibrary(); }, []);
-
   useEffect(() => {
     if (visionStatus && visionStatus.state === 'error') {
       setVisionFailed(true);
@@ -106,18 +112,18 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   function clearAttach() { attachRef.current = null; setAttachedUri(null); }
 
   const atLast = tier >= CHAIN.length - 1;
-  const dlFrac = Math.min(1, (llm.downloadProgress || 0) / 100); // executorch reports 0..100
-  const errMsg = llm.error ? (llm.error.message || String(llm.error)) : '';
-  const diag = `${Platform.OS}${isPad ? ' iPad' : ' phone'} · ${entry.base} (${Math.min(tier, CHAIN.length - 1) + 1}/${CHAIN.length}) · ${pref} · dl ${Math.round(dlFrac * 100)}%${errMsg ? ' · ' + errMsg.slice(0, 220) : ''}`;
+  const dlFrac = Math.min(1, (engine.downloadProgress || 0) / 100); // executorch reports 0..100
+  const errMsg = engine.error ? (engine.error.message || String(engine.error)) : '';
+  const diag = `${Platform.OS}${isPad ? ' iPad' : ' phone'} · ${entry.base} (${Math.min(tier, CHAIN.length - 1) + 1}/${CHAIN.length}) · ${chatModel} · dl ${Math.round(dlFrac * 100)}%${errMsg ? ' · ' + errMsg.slice(0, 220) : ''}`;
   const status = (() => {
-    if (llm.error && atLast) return { state: 'unavailable', label: 'Could not load model', detail: diag };
-    if (llm.error) return { state: 'loading', label: 'Trying a lighter model…' };
-    if (!llm.isReady && dlFrac < 1) return { state: 'downloading', progress: dlFrac, label: `Downloading ${entry.name} ${Math.round(dlFrac * 100)}%`, model: entry };
-    if (!llm.isReady) return { state: 'loading', label: 'Getting ready…', model: entry };
+    if (engine.error && atLast) return { state: 'unavailable', label: 'Could not load model', detail: diag };
+    if (engine.error) return { state: 'loading', label: 'Trying a lighter model…' };
+    if (!engine.isReady && dlFrac < 1) return { state: 'downloading', progress: dlFrac, label: `Downloading ${entry.name} ${Math.round(dlFrac * 100)}%` };
+    if (!engine.isReady) return { state: 'loading', label: `Loading ${entry.name}…` };
     if (preparing) return { state: 'ready', label: 'Reading photo…' };
     if (attachedUri && visionStatus && visionStatus.state === 'downloading') return { state: 'ready', label: `Preparing vision ${Math.round((visionStatus.progress || 0) * 100)}%` };
     if (attachedUri && !visionReady) return { state: 'ready', label: 'Preparing vision…' };
-    return { state: 'ready', label: entry.name + ' · on-device' };
+    return { state: 'ready', label: entry.name };
   })();
   status.detail = diag;
   status.model = entry;
@@ -148,27 +154,28 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     ]);
   }, [capture]);
 
-  // Stream one model turn into the last assistant message.
-  const runModel = async (base, prompt, { maxTokens, sources, kind }) => {
-    let fullPrompt = prompt;
-    if (recapRef.current) { fullPrompt = recapRef.current + prompt; recapRef.current = ''; }
+  // One model turn for this chat, streamed into the last assistant message.
+  // base = the chat including the new user message (last element).
+  const runModel = async (base, prompt, { maxTokens, sources, kind, think: thinkOn }) => {
+    const chatId = activeChatId;
+    const history = historyOf(base.slice(0, -1));
+    const userMsg = base[base.length - 1];
+    const key = userMsg.text || '[photo]';
     const t0 = Date.now();
     let acc = '';
     let errored = null;
     try {
-      await llm.sendMessage(fullPrompt, (tok) => {
+      await engine.send(chatId, history, prompt, (tok) => {
         acc += tok;
         const { think, answer } = parseThink(acc);
-        setMessages([...base, { role: 'assistant', text: answer, think, streaming: true, sources }]);
-      }, { maxNewTokens: lean ? 320 : maxTokens });
+        setMessages([...base, { role: 'assistant', text: answer, think, streaming: true, sources, thinking: thinkOn }]);
+      }, { maxNewTokens: lean ? 320 : maxTokens, key });
     } catch (e) { errored = e; }
-    turnsRef.current += 1;
     const { think, answer } = parseThink(acc);
     let text = answer;
 
-    // Safety net: a real question that got an empty or few-word answer (the
-    // model spent its budget thinking, or was too terse) gets one follow-up
-    // turn asking for the full answer, with thinking switched off.
+    // Safety net: a real question that got an empty or few-word answer gets
+    // one follow-up turn asking for the complete answer, thinking off.
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     const wantsDepth = ['explain', 'reason', 'fact', 'worksheet'].includes(kind);
     if (!errored && !lean && wantsDepth && words < (kind === 'fact' ? 12 : 40)) {
@@ -178,33 +185,49 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
         + (DEPTH[kind] ? ' ' + DEPTH[kind] : '') + (entry.think ? ' /no_think' : '');
       let acc2 = '';
       try {
-        await llm.sendMessage(ask2, (tok) => {
+        const h2 = historyOf([...base, { role: 'assistant', text: answer || '…' }]);
+        await engine.send(chatId, h2, ask2, (tok) => {
           acc2 += tok;
-          const p = parseThink(acc2);
-          setMessages([...base, { role: 'assistant', text: p.answer, think, streaming: true, sources }]);
-        }, { maxNewTokens: 1400 });
-        turnsRef.current += 1;
+          setMessages([...base, { role: 'assistant', text: parseThink(acc2).answer, think, streaming: true, sources }]);
+        }, { maxNewTokens: 1400, key: '__expand__' });
         const better = parseThink(acc2).answer.trim();
         if (better.split(/\s+/).length > words) text = better;
       } catch (e) { /* keep the first answer */ }
     }
 
     if (errored) {
-      const short = turnsRef.current <= 1 && !acc;
-      text = (answer ? answer + '\n\n' : '') + (short
-        ? 'I ran out of memory on that one. Try a lighter model in Settings → Model, or ask again.'
-        : '_I reached my memory limit for this conversation, so I’m refreshing — ask again and I’ll pick up from here._');
+      const firstRun = !acc && messages.filter((m) => m.role === 'assistant').length === 0;
+      text = (answer ? answer + '\n\n' : '') + (firstRun
+        ? 'This model ran out of memory on this device. I’ll switch to a lighter one — ask again in a moment.'
+        : 'Something went wrong while answering. Please ask again.');
+      if (firstRun) { markFailed(entry.id); if (tier < CHAIN.length - 1) setTier((x) => x + 1); }
     } else if (!text.trim()) {
-      text = think ? 'I didn’t finish that thought in time. Ask again, or switch on **Think harder** for tough questions.' : (acc || 'Sorry — I couldn’t come up with an answer.');
+      text = think ? 'I didn’t finish that thought. Ask again, or turn on **Deep think** for tough questions.' : (acc || 'Sorry — I couldn’t come up with an answer.');
     }
     const secs = Math.max(0.1, (Date.now() - t0) / 1000);
-    const final = [...base, { role: 'assistant', text, think, streaming: false, sources, kind, model: entry.name, secs: Math.round(secs * 10) / 10 }];
-    commit(final);
+    commit([...base, { role: 'assistant', text, think, streaming: false, sources, kind, model: entry.name, secs: Math.round(secs * 10) / 10 }]);
     setGenerating(false);
-    if (errored || turnsRef.current >= MAX_MODEL_TURNS) {
-      if (errored && turnsRef.current <= 1 && tier < CHAIN.length - 1) setTier((x) => x + 1);
-      else onResetSession(recapOf(final));
-    }
+  };
+
+  const gatherRefs = async (text, r) => {
+    const refs = [];
+    const want = lean ? 1 : 3;
+    const cap = lean ? 420 : 760;
+    if (!kbOn || r.kind === 'write') return refs;
+    try {
+      const word = definitionTarget(text);
+      if (word) { const d = await libraryDefine(word); if (d) refs.push({ title: 'Dictionary: ' + d.word, text: String(d.definition).slice(0, cap) }); }
+      if (r.kind !== 'chat' || word) {
+        for (const h of searchHandbook(text, lean ? 1 : 2)) if (refs.length < want) refs.push({ title: h.title, text: String(h.text).slice(0, cap) });
+        const more = want - refs.length;
+        if (more > 0) {
+          const hits = libraryReady() ? await librarySearch(text, more)
+            : (knowledgeReady() ? retrieve(text, more).map((x) => ({ title: x.title, text: x.summary })) : []);
+          for (const x of hits) if (!refs.find((y) => y.title === x.title)) refs.push({ title: x.title, text: String(x.text).slice(0, cap) });
+        }
+      }
+    } catch (e) {}
+    return refs;
   };
 
   const ask = async (text, base) => {
@@ -213,34 +236,14 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
       const c = calc(text);
       if (c) { commit([...base, { role: 'assistant', text: mathAnswer(c), streaming: false, kind: 'math', model: 'Calculator' }]); return; }
     }
-    if (!llm.isReady || !llm.sendMessage) return;
-    commit([...base, { role: 'assistant', text: '', think: '', streaming: true }]);
+    if (!engine.isReady || !engine.send) return;
+    commit([...base, { role: 'assistant', text: '', think: '', streaming: true, thinking: r.think }]);
     setGenerating(true);
-    // Grounding, most exact first: dictionary (for "define X"), the Handbook
-    // (formulas, rules, tables), then the downloaded Library, else the
-    // built-in encyclopedia.
-    const refs = [];
-    const want = lean ? 1 : 3;
-    const cap = lean ? 420 : 760;
-    if (kbOn && r.kind !== 'write') {
-      try {
-        const word = definitionTarget(text);
-        if (word) { const d = await libraryDefine(word); if (d) refs.push({ title: 'Dictionary: ' + d.word, text: String(d.definition).slice(0, cap) }); }
-        if (r.kind !== 'chat' || word) {
-          for (const h of searchHandbook(text, lean ? 1 : 2)) if (refs.length < want) refs.push({ title: h.title, text: String(h.text).slice(0, cap) });
-          const more = want - refs.length;
-          if (more > 0) {
-            const hits = libraryReady() ? await librarySearch(text, more)
-              : (knowledgeReady() ? retrieve(text, more).map((x) => ({ title: x.title, text: x.summary })) : []);
-            for (const x of hits) if (!refs.find((y) => y.title === x.title)) refs.push({ title: x.title, text: String(x.text).slice(0, cap) });
-          }
-        }
-      } catch (e) {}
-    }
+    const refs = await gatherRefs(text, r);
     let c = calc(text);
     if (c && /^\d+\s*-\s*\d+$/.test(c.expr)) c = null; // phone numbers, year ranges, scores
     const prompt = buildPrompt({ text, refs, calc: c, think: r.think, canToggleThinking: entry.think, kind: r.kind });
-    await runModel(base, prompt, { maxTokens: r.maxTokens, sources: refs.map((x) => x.title), kind: r.kind });
+    await runModel(base, prompt, { maxTokens: r.maxTokens, sources: refs.map((x) => x.title), kind: r.kind, think: r.think });
   };
 
   const onSend = useCallback(async () => {
@@ -266,7 +269,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
         commit([...base, { role: 'assistant', text: `Sorry, I couldn’t read that photo (${String((e && e.message) || e).slice(0, 160)}). Try another one.`, streaming: false }]);
         setGenerating(false); return;
       }
-      if (!llm.isReady || !llm.sendMessage) { commit([...base, { role: 'assistant', text: facts.summary, streaming: false }]); setGenerating(false); return; }
+      if (!engine.isReady || !engine.send) { commit([...base, { role: 'assistant', text: facts.summary, streaming: false }]); setGenerating(false); return; }
 
       const lines = (facts.textLines || []).map((x) => (x && x.text ? x.text.trim() : '')).filter(Boolean);
       const ocrText = lines.join('\n');
@@ -274,46 +277,44 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
       const isDocument = lines.length >= 2 || ocrText.replace(/\s/g, '').length >= 24;
       let prompt; let kind; let maxTokens;
       if (isDocument) {
-        kind = 'worksheet'; maxTokens = 1536;
+        kind = 'worksheet'; maxTokens = 2048;
         prompt =
           'The user photographed a worksheet, problem set or document. Text read from it by OCR (may contain small recognition errors — silently fix obvious ones like 0/O or l/1):\n"""\n' +
           ocrText.slice(0, 2400) + '\n"""\n\n' +
           (text ? 'The user asks: ' + text + '\nAnswer using the text above.'
-            : 'Work through it. For EACH question or problem, give the answer clearly, numbered to match (e.g. "1. ..."), with brief working for math or science. If a part is unreadable, say which. Be accurate and concise.');
+            : 'Work through it. For EACH question or problem, give the answer clearly, numbered to match (e.g. "1. ..."), with brief working for math or science. If a part is unreadable, say which. Be accurate.');
         const c = calc(ocrText.length < 160 ? ocrText : '');
         if (c) prompt += `\n\nVerified calculation (exact): ${c.expr} = ${c.display}`;
         if (entry.think) prompt += ' /think';
       } else {
-        kind = 'photo'; maxTokens = 500;
+        kind = 'photo'; maxTokens = 600;
         const detected = [];
         if (tops.length) detected.push('Objects most likely in the photo: ' + tops.map((x) => `${pretty(x.label)} (${Math.round(x.confidence * 100)}%)`).join(', ') + '.');
         if (ocrText) detected.push('Text read in the photo: "' + ocrText.slice(0, 200) + '".');
         if (!detected.length) detected.push('No clear objects or text could be detected.');
         prompt = 'The user shared a photo. An on-device vision system analyzed it and found:\n' + detected.join('\n') +
-          '\n\nThese detections can be imperfect. Using them, answer naturally and concisely. If they asked a question, answer it; otherwise describe what\'s in the photo. Do not mention "detections" or percentages unless useful.\n\nUser: ' + (text || 'What is in this photo?');
+          '\n\nThese detections can be imperfect. Using them, answer naturally. If they asked a question, answer it; otherwise describe what\'s in the photo. Do not mention "detections" or percentages unless useful.\n\nUser: ' + (text || 'What is in this photo?');
         if (entry.think) prompt += ' /no_think';
       }
-      await runModel(base, prompt, { maxTokens, sources: [], kind });
+      await runModel(base, prompt, { maxTokens, sources: [], kind, think: isDocument });
       return;
     }
 
-    if (!text || !llm.isReady || !llm.sendMessage) return;
+    if (!text || !engine.isReady || !engine.send) return;
     setInput('');
     await ask(text, [...messages, { role: 'user', text }]);
-  }, [input, generating, preparing, attachedUri, visionReady, visionFailed, visionErr, messages, llm, kbOn, reasoning, lean, entry]);
+  }, [input, generating, preparing, attachedUri, visionReady, visionFailed, visionErr, messages, engine, kbOn, reasoning, lean, entry, activeChatId]);
 
-  // Ask the same question again for a fresh answer.
   const onRegenerate = useCallback(async (index) => {
     if (generating) return;
     const prior = messages.slice(0, index);
     const lastUser = [...prior].reverse().find((m) => m.role === 'user');
     if (!lastUser || !lastUser.text || lastUser.imageUri) return;
     await ask(lastUser.text, prior);
-  }, [messages, generating, llm, kbOn, reasoning, lean, entry]);
+  }, [messages, generating, engine, kbOn, reasoning, lean, entry, activeChatId]);
 
-  const onStop = useCallback(() => { try { llm.stop && llm.stop(); } catch (e) {} setGenerating(false); }, [llm]);
-
-  const canSend = llm.isReady && !preparing && (attachRef.current ? (visionReady || visionFailed) : true);
+  const onStop = useCallback(() => { try { engine.stop && engine.stop(); } catch (e) {} setGenerating(false); }, [engine]);
+  const canSend = engine.isReady && !preparing && (attachRef.current ? (visionReady || visionFailed) : true);
 
   return (
     <>
@@ -330,15 +331,15 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
         canSend={canSend} title={active.title} download={DOWNLOAD}
         chats={chats} activeChatId={activeChatId}
         onNewChat={onNewChat} onOpenChat={onOpenChat} onDeleteChat={onDeleteChat} onClearChats={onClearChats}
+        chatModel={chatModel} onSetChatModel={(id) => onSetChatModel(activeChatId, id)}
       />
     </>
   );
 }
 
-function ChatsManager({ t, safe }) {
+function ChatsManager({ t }) {
   const [chats, setChats] = useState(null);
   const [activeId, setActiveId] = useState(null);
-  const [session, setSession] = useState({ key: 0, recap: '' });
   const chatsRef = useRef([]);
   const activeIdRef = useRef(null);
   chatsRef.current = chats || [];
@@ -377,18 +378,20 @@ function ChatsManager({ t, safe }) {
     });
   }, []);
   const onClearChats = useCallback(() => { const c = newChat(); setChats([c]); setActiveId(c.id); saveChats([c]); }, []);
-  const onResetSession = useCallback((recap) => setSession((s) => ({ key: s.key + 1, recap: recap || '' })), []);
+  const onSetChatModel = useCallback((chatId, model) => {
+    const next = chatsRef.current.map((c) => (c.id === chatId ? { ...c, model } : c));
+    setChats(next); saveChats(next);
+  }, []);
 
   if (!chats || !activeId) return null;
   const active = chats.find((c) => c.id === activeId) || chats[0];
 
   return (
     <ModelChat
-      key={session.key}
       t={t} active={active} activeChatId={activeId} chats={chats}
-      persistMessages={persistMessages} startSafe={safe}
+      persistMessages={persistMessages}
       onNewChat={onNewChat} onOpenChat={onOpenChat} onDeleteChat={onDeleteChat} onClearChats={onClearChats}
-      onResetSession={onResetSession} carryRecap={session.recap}
+      onSetChatModel={onSetChatModel}
     />
   );
 }
@@ -397,11 +400,10 @@ export default function ChatNative() {
   const t = useTheme();
   const [enabled, setEnabled] = useState(false);
   const [checked, setChecked] = useState(false);
-  const [safe, setSafe] = useState(false);
 
   useEffect(() => {
-    Promise.all([AsyncStorage.getItem(ENABLED_KEY), AsyncStorage.getItem('aria.model.safe.v1')])
-      .then(([en, sf]) => { if (en === '1') setEnabled(true); if (sf === '1') setSafe(true); setChecked(true); })
+    AsyncStorage.getItem(ENABLED_KEY)
+      .then((en) => { if (en === '1') setEnabled(true); setChecked(true); })
       .catch(() => setChecked(true));
   }, []);
 
@@ -429,7 +431,7 @@ export default function ChatNative() {
 
   return (
     <Boundary fallback={fallback}>
-      <ChatsManager t={t} safe={safe} />
+      <ChatsManager t={t} />
     </Boundary>
   );
 }

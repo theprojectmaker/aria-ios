@@ -44,3 +44,20 @@ export function chainIds(pref) {
   if (i >= 0) return ladder.slice(i);
   return [p, 'qwen3-1.7b', 'qwen3-0.6b', 'smollm2-360m'];
 }
+
+/* Automatic model choice: the smartest model already on the device that has
+   not failed here before (out-of-memory is remembered per model). With
+   nothing downloaded yet, start with the everyday default. */
+export const AUTO_LADDER = ['qwen3-4b', 'phi4-mini', 'qwen3-1.7b', 'llama3.2-3b', 'qwen2.5-3b', 'qwen3-0.6b', 'smollm2-360m'];
+export function autoPick(downloaded = [], failed = []) {
+  const ok = (id) => downloaded.includes(id) && !failed.includes(id);
+  return AUTO_LADDER.find(ok) || (failed.includes('qwen3-1.7b') ? 'qwen3-0.6b' : 'qwen3-1.7b');
+}
+// Chain for a chat: its locked model (or the automatic pick), then smaller
+// fallbacks so an out-of-memory model still leaves the chat working.
+export function chainFor(chatModel, globalPref, downloaded = [], failed = []) {
+  const first = chatModel && chatModel !== 'auto' ? chatModel
+    : (globalPref && normalizeModelPref(globalPref) !== 'auto' ? normalizeModelPref(globalPref) : autoPick(downloaded, failed));
+  const rest = ['qwen3-1.7b', 'qwen3-0.6b', 'smollm2-360m'].filter((id) => id !== first && !failed.includes(id));
+  return [first, ...rest];
+}

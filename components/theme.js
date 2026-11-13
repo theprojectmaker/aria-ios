@@ -2,31 +2,32 @@ import { useColorScheme } from 'react-native';
 import { useMemo } from 'react';
 import { usePrefs } from './prefs';
 
-/* Monochrome, premium palette — graphite + white, one neutral system.
-   Primary actions use near-black (light) / white (dark). A single green dot
-   signals "on-device"; one restrained accent (iris) marks thinking/sources.
-   Honors the theme preference (System / Light / Dark) from Settings. */
+/* Native iOS feel: system font, system grouped greys, one restrained accent
+   (deep green) used only for primary actions and state. No decorative type,
+   no gradients. Honors the theme preference (System / Light / Dark). */
+export const SERIF = undefined; // system font everywhere
+
 export function useTheme() {
   const sys = useColorScheme();
   const { theme } = usePrefs();
   const dark = theme === 'dark' ? true : theme === 'light' ? false : sys === 'dark';
   return useMemo(() => dark ? {
-    dark: true,
-    bg: '#000000', side: '#0A0A0B', card: '#111113', raised: '#161618', fill: '#1C1C1E', fill2: '#242426', sep: '#262628', sepStrong: '#3A3A3C',
-    label: '#F5F5F7', label2: '#A1A1A6', label3: '#636366',
-    accent: '#FFFFFF', onAccent: '#000000',
-    iris: '#A5A6FF', irisBg: 'rgba(130,132,255,0.14)',
-    green: '#30D158', red: '#FF453B', blue: '#0A84FF',
-    bubbleUser: '#1F1F22', onBubbleUser: '#F5F5F7',
+    dark: true, serif: undefined,
+    bg: '#000000', side: '#1C1C1E', card: '#1C1C1E', raised: '#1C1C1E', fill: '#2C2C2E', fill2: '#1C1C1E', sep: '#38383A', sepStrong: '#48484A',
+    label: '#FFFFFF', label2: '#98989F', label3: '#636366',
+    accent: '#3DBE84', onAccent: '#00160C', ink: '#FFFFFF',
+    iris: '#3DBE84', irisBg: 'rgba(61,190,132,0.15)',
+    green: '#30D158', red: '#FF453A', blue: '#0A84FF',
+    bubbleUser: '#2C2C2E', onBubbleUser: '#FFFFFF',
     shadow: '#000000',
   } : {
-    dark: false,
-    bg: '#FFFFFF', side: '#F7F7F8', card: '#FFFFFF', raised: '#FFFFFF', fill: '#F2F2F4', fill2: '#F7F7F9', sep: '#E7E7EB', sepStrong: '#D2D2D7',
-    label: '#1D1D1F', label2: '#6E6E73', label3: '#AEAEB2',
-    accent: '#1D1D1F', onAccent: '#FFFFFF',
-    iris: '#5856D6', irisBg: 'rgba(88,86,214,0.09)',
-    green: '#28A745', red: '#D1453B', blue: '#0A84FF',
-    bubbleUser: '#F1F1F4', onBubbleUser: '#1D1D1F',
-    shadow: '#1D1D1F',
+    dark: false, serif: undefined,
+    bg: '#FFFFFF', side: '#F2F2F7', card: '#FFFFFF', raised: '#FFFFFF', fill: '#EFEFF4', fill2: '#F2F2F7', sep: '#E3E3E8', sepStrong: '#C7C7CC',
+    label: '#000000', label2: '#6C6C70', label3: '#AEAEB2',
+    accent: '#1E7A52', onAccent: '#FFFFFF', ink: '#000000',
+    iris: '#1E7A52', irisBg: 'rgba(30,122,82,0.09)',
+    green: '#34C759', red: '#FF3B30', blue: '#007AFF',
+    bubbleUser: '#EFEFF4', onBubbleUser: '#000000',
+    shadow: '#000000',
   }, [dark]);
 }

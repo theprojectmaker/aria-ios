@@ -23,7 +23,7 @@ const THEME_OPTIONS = [
   { key: 'dark', title: 'Dark', sub: '' },
 ];
 
-export default function Settings({ t, visible, onClose, onClearChats }) {
+export default function Settings({ t, visible, onClose, onClearChats, onOpenModels }) {
   const insets = useSafeAreaInsets();
   const prefs = usePrefs();
   const modelPref = normalizeModelPref(prefs.model);
@@ -56,27 +56,16 @@ export default function Settings({ t, visible, onClose, onClearChats }) {
           <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => [s.closeBtn, pressed && { opacity: 0.5 }]}><Close c={t.label} /></Pressable>
         </View>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 30 }} showsVerticalScrollIndicator={false}>
-          <Text style={s.section}>Model library</Text>
+          <Text style={s.section}>Models</Text>
           <View style={s.card}>
-            <Row title={AUTO.name} sub={AUTO.pitch} selected={modelPref === 'auto'} onPress={() => setModelPref('auto')} />
-            {MODEL_CATALOG.map((m) => (
-              <View key={m.id}>
-                <View style={s.sep} />
-                <Pressable onPress={() => setModelPref(m.id)} style={({ pressed }) => [s.row, pressed && { backgroundColor: t.fill }]}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <Text style={s.rowTitle}>{m.name}</Text>
-                      {m.tags.map((tg) => <View key={tg} style={s.tag}><Text style={s.tagTxt}>{tg}</Text></View>)}
-                    </View>
-                    <Text style={s.rowSub}>{m.pitch}</Text>
-                    <Text style={s.rowMeta}>{m.base} · {m.size} · best with {m.ram}+ GB RAM</Text>
-                  </View>
-                  {modelPref === m.id ? <Check c={t.accent} /> : null}
-                </Pressable>
+            <Pressable onPress={onOpenModels} style={({ pressed }) => [s.row, pressed && { backgroundColor: t.fill }]}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={s.rowTitle}>Models</Text>
+                <Text style={s.rowSub}>Download, delete and compare AI models. New notes use Automatic; lock a note to a model from the button at the top of the chat.</Text>
               </View>
-            ))}
+              <Text style={{ color: t.label3, fontSize: 22 }}>›</Text>
+            </Pressable>
           </View>
-          <Text style={s.note}>A model downloads the first time you use it, then works offline. If a model is too big for this device, Aria automatically steps down to a smaller one.</Text>
 
           <Text style={s.section}>Thinking</Text>
           <View style={s.card}>
@@ -146,7 +135,7 @@ export default function Settings({ t, visible, onClose, onClearChats }) {
             <View style={s.about}>
               <Text style={s.aboutTitle}>Aria runs entirely on this device.</Text>
               <Text style={s.aboutBody}>Your chats and photos never leave it — no account, no server. Math is computed exactly by a built-in calculator, facts are checked against an offline library of 9,000+ topics, and photos are read on-device.</Text>
-              <Text style={s.version}>Aria 2.0 · library: Simple English Wikipedia (CC BY-SA)</Text>
+              <Text style={s.version}>Aria 3.0 · library: Simple English Wikipedia (CC BY-SA)</Text>
             </View>
           </View>
         </ScrollView>
@@ -159,7 +148,7 @@ function styles(t) {
   return StyleSheet.create({
     wrap: { flex: 1, backgroundColor: t.bg },
     head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.sep },
-    headTitle: { color: t.label, fontSize: 22, fontWeight: '700', letterSpacing: -0.4 },
+    headTitle: { color: t.label, fontSize: 28, fontFamily: t.serif, fontWeight: '700' },
     closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: t.fill, alignItems: 'center', justifyContent: 'center' },
     section: { color: t.label2, fontSize: 12.5, fontWeight: '600', letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 22, marginBottom: 9, marginLeft: 6 },
     card: { backgroundColor: t.card, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: t.sep, overflow: 'hidden' },
