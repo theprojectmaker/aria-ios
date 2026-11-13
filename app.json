@@ -2,12 +2,12 @@
   "expo": {
     "name": "Aria",
     "slug": "aria",
-    "version": "1.0.0",
-    "orientation": "portrait",
+    "version": "1.1.0",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "aria",
     "userInterfaceStyle": "automatic",
-    "backgroundColor": "#000000",
+    "backgroundColor": "#F2F2F7",
     "ios": {
       "bundleIdentifier": "com.solyapps.aria",
       "supportsTablet": true,
@@ -17,12 +17,17 @@
       },
       "entitlements": {
         "com.apple.developer.kernel.increased-memory-limit": true
+      },
+      "icon": {
+        "light": "./assets/images/icon.png",
+        "dark": "./assets/images/icon-dark.png",
+        "tinted": "./assets/images/icon-tinted.png"
       }
     },
     "android": {
       "package": "com.solyapps.aria",
       "adaptiveIcon": {
-        "backgroundColor": "#1A1A1C",
+        "backgroundColor": "#2F6BEA",
         "foregroundImage": "./assets/images/adaptive-icon.png"
       },
       "permissions": []
@@ -36,13 +41,13 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#1A1A1C",
+          "backgroundColor": "#2F6BEA",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 120,
+          "imageWidth": 110,
           "dark": {
-            "backgroundColor": "#1A1A1C",
+            "backgroundColor": "#000000",
             "image": "./assets/images/splash-icon.png",
-            "imageWidth": 120
+            "imageWidth": 110
           }
         }
       ],

@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator, Image, Modal, Animated, Easing, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
 import Markdown from 'react-native-markdown-display';
 import { ActionsSheet, ToolsHub } from './tools';
 import Settings from './settings';
@@ -12,6 +12,7 @@ import ModelsScreen from './modelsScreen';
 import { usePrefs, setReasoning } from './prefs';
 import { MODEL_CATALOG, autoPick, catalogEntry } from './catalog';
 import { useModels } from './models';
+import Glass from './glass';
 
 /* ── marks & icons ─────────────────────────────────────────────────────── */
 const SPARK = 'M12 1.6C12.95 7.6 16.4 11.05 22.4 12C16.4 12.95 12.95 16.4 12 22.4C11.05 16.4 7.6 12.95 1.6 12C7.6 11.05 11.05 7.6 12 1.6Z';
@@ -56,6 +57,25 @@ const Ic = {
 };
 
 const MAX_COL = 740;
+// Light haptic tick (no-op where haptics aren't available).
+const tap = () => { try { require('expo-haptics').impactAsync('light'); } catch (e) {} };
+
+/* Softly lit backdrop so glass has something to refract. */
+function Ambient({ t }) {
+  return (
+    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100">
+      <Defs>
+        <RadialGradient id="g1" cx="12" cy="8" r="60" gradientUnits="userSpaceOnUse"><Stop offset="0" stopColor={t.glow1} stopOpacity={t.dark ? 0.55 : 0.9} /><Stop offset="1" stopColor={t.glow1} stopOpacity={0} /></RadialGradient>
+        <RadialGradient id="g2" cx="92" cy="30" r="55" gradientUnits="userSpaceOnUse"><Stop offset="0" stopColor={t.glow2} stopOpacity={t.dark ? 0.45 : 0.8} /><Stop offset="1" stopColor={t.glow2} stopOpacity={0} /></RadialGradient>
+        <RadialGradient id="g3" cx="40" cy="105" r="60" gradientUnits="userSpaceOnUse"><Stop offset="0" stopColor={t.glow3} stopOpacity={t.dark ? 0.4 : 0.7} /><Stop offset="1" stopColor={t.glow3} stopOpacity={0} /></RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100" height="100" fill={t.bg} />
+      <Rect x="0" y="0" width="100" height="100" fill="url(#g1)" />
+      <Rect x="0" y="0" width="100" height="100" fill="url(#g2)" />
+      <Rect x="0" y="0" width="100" height="100" fill="url(#g3)" />
+    </Svg>
+  );
+}
 
 /* ── small pieces ──────────────────────────────────────────────────────── */
 function PressScale({ style, children, onPress, onLongPress, disabled, hitSlop, label }) {
@@ -270,7 +290,7 @@ function ModelPicker({ t, s, visible, onClose, chatModel, onPick, onManage }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.sheetBackdrop} onPress={onClose}>
-        <Pressable style={s.sheet} onPress={() => {}}>
+        <Pressable style={s.sheetOuter} onPress={() => {}}><Glass t={t} radius={30} style={s.sheet}>
           <View style={s.grabber} />
           <Text style={s.sheetTitle}>Model for this note</Text>
           <Opt id="auto" title="Automatic" sub={`Smartest model on this device${auto ? ` — now ${auto.name}` : ''}`} />
@@ -278,7 +298,7 @@ function ModelPicker({ t, s, visible, onClose, chatModel, onPick, onManage }) {
           <Pressable onPress={() => { onClose(); onManage(); }} style={({ pressed }) => [s.manageBtn, pressed && { opacity: 0.7 }]}>
             {Ic.chip(t.accent)}<Text style={s.manageTxt}>Get more models</Text>
           </Pressable>
-        </Pressable>
+        </Glass></Pressable>
       </Pressable>
     </Modal>
   );
@@ -353,45 +373,42 @@ export default function ChatUI({
   const lockedEntry = chatModel && chatModel !== 'auto' ? catalogEntry(chatModel) : null;
   const modelLabel = lockedEntry ? lockedEntry.name : 'Auto';
 
+  const headH = (wide ? insets.top + 12 : insets.top + 6) + 48;
   const header = (
-    <View style={[s.header, { paddingTop: wide ? 12 : insets.top + 4 }]}>
-      <View style={s.headRow}>
+    <View pointerEvents="box-none" style={[s.headerFloat, { paddingTop: wide ? insets.top + 12 : insets.top + 6 }]}>
+      <View pointerEvents="box-none" style={s.headRow}>
         {hasChats ? (
-          <Pressable accessibilityLabel={wide ? 'Toggle sidebar' : 'Notes'} onPress={() => (wide ? setSideOpen((o) => !o) : setDrawer(true))} hitSlop={10} style={({ pressed }) => [s.headBtn, pressed && { opacity: 0.4 }]}>
-            {wide ? Ic.sidebar(t.label2) : Ic.menu(t.label)}
-          </Pressable>
-        ) : <View style={s.headBtn} />}
-        <Pressable style={{ flex: 1, paddingHorizontal: 6 }} onLongPress={() => status.detail && copy(status.detail)} hitSlop={6}>
+          <Glass t={t} interactive radius={22} style={s.headCircle}>
+            <Pressable accessibilityLabel={wide ? 'Toggle sidebar' : 'Notes'} onPress={() => (wide ? setSideOpen((o) => !o) : setDrawer(true))} hitSlop={8} style={s.headHit}>
+              {wide ? Ic.sidebar(t.label) : Ic.menu(t.label)}
+            </Pressable>
+          </Glass>
+        ) : <View style={{ width: 44 }} />}
+        <Pressable style={{ flex: 1, alignItems: 'center', paddingHorizontal: 8 }} onLongPress={() => status.detail && copy(status.detail)} hitSlop={6}>
           <Text style={s.hTitle} numberOfLines={1}>{empty ? 'Aria' : (title || 'Aria')}</Text>
           <View style={s.hStatus}>
             <View style={[s.dot, { backgroundColor: ready ? t.green : status.state === 'unavailable' ? t.label3 : t.accent }]} />
-            <Text style={s.hStatusTxt} numberOfLines={1}>{ready ? 'On-device · private' : status.label}</Text>
+            <Text style={s.hStatusTxt} numberOfLines={1}>{ready ? 'On device' : status.label}</Text>
           </View>
         </Pressable>
-        {hasChats && onSetChatModel ? (
-          <Pressable accessibilityLabel="Choose model" onPress={() => setPickerOpen(true)} style={({ pressed }) => [s.modelChip, pressed && { opacity: 0.6 }]}>
-            {Ic.chip(t.label2)}<Text style={s.modelChipTxt} numberOfLines={1}>{modelLabel}</Text>{Ic.down(t.label2)}
-          </Pressable>
-        ) : null}
         {hasChats ? (
-          <Pressable accessibilityLabel="New chat" onPress={onNewChat} hitSlop={10} style={({ pressed }) => [s.headBtn, pressed && { opacity: 0.4 }]}>{Ic.note(t.label)}</Pressable>
-        ) : <View style={s.headBtn} />}
+          <Glass t={t} interactive radius={22} style={s.headPill}>
+            {onSetChatModel ? (
+              <Pressable accessibilityLabel="Choose model" onPress={() => setPickerOpen(true)} hitSlop={6} style={s.pillBtn}>
+                <Text style={s.modelChipTxt} numberOfLines={1}>{modelLabel}</Text>{Ic.down(t.label2)}
+              </Pressable>
+            ) : null}
+            <View style={s.pillSep} />
+            <Pressable accessibilityLabel="New chat" onPress={onNewChat} hitSlop={6} style={s.pillBtn}>{Ic.note(t.label)}</Pressable>
+          </Glass>
+        ) : <View style={{ width: 44 }} />}
       </View>
     </View>
   );
 
   const main = (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={{ paddingTop: wide ? insets.top : 0 }}>{header}</View>
-      {banner ? (<View style={s.banner}><Text style={s.bannerTxt}>{banner}</Text></View>) : null}
-      {busy && !empty ? (
-        <View style={s.strip}>
-          <ActivityIndicator size="small" color={t.accent} style={{ transform: [{ scale: 0.8 }] }} />
-          <Text style={s.stripTxt}>{status.state === 'downloading' ? `${status.label}${eta ? ' · ' + eta : ''}` : status.label}</Text>
-        </View>
-      ) : null}
-
-      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={[s.scroll, { paddingTop: headH + 8 + (busy && !empty ? 34 : 0) + (banner ? 30 : 0) }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={s.col}>
           {setupScreen && (
             <View style={s.center}>
@@ -439,7 +456,7 @@ export default function ChatUI({
             <View style={s.desk}>
               <Text style={s.greet}>How can I help?</Text>
               <Text style={s.greetSub}>Runs on this device. Nothing you ask leaves it.</Text>
-              <View style={s.startList}>
+              <Glass t={t} style={s.startList} radius={16}>
                 {STARTERS.map((sg, i) => (
                   <Pressable key={sg.key} onPress={() => tapStarter(sg)} style={({ pressed }) => [s.startRow, i === STARTERS.length - 1 && { borderBottomWidth: 0 }, pressed && { backgroundColor: t.fill2 }]}>
                     <View style={s.startIcon}>{(Ic[sg.icon] || Ic.pencil)(t.label2)}</View>
@@ -450,17 +467,17 @@ export default function ChatUI({
                     {Ic.chevron(t.label3, false)}
                   </Pressable>
                 ))}
-              </View>
+              </Glass>
               {recent.length ? (<>
                 <Text style={s.deskSection}>Recent</Text>
-                <View style={s.startList}>
+                <Glass t={t} style={s.startList} radius={16}>
                   {recent.map((c, i) => (
                     <Pressable key={c.id} onPress={() => onOpenChat && onOpenChat(c.id)} style={({ pressed }) => [s.recentRow, i === recent.length - 1 && { borderBottomWidth: 0 }, pressed && { backgroundColor: t.fill }]}>
                       <Text style={s.recentTitle} numberOfLines={1}>{c.title}</Text>
                       <Text style={s.chatRowTime}>{timeAgo(c.updatedAt)}</Text>
                     </Pressable>
                   ))}
-                </View>
+                </Glass>
               </>) : null}
             </View>
           )}
@@ -474,7 +491,7 @@ export default function ChatUI({
 
       <View style={[s.composerWrap, { paddingBottom: insets.bottom ? insets.bottom : 12 }]}>
         <View style={s.col}>
-          <View style={s.composer}>
+          <Glass t={t} interactive style={s.composer} radius={26}>
             {attachedUri ? (
               <View style={s.attachRow}>
                 <Image source={{ uri: attachedUri }} style={s.attachThumb} resizeMode="cover" />
@@ -514,13 +531,22 @@ export default function ChatUI({
               {generating ? (
                 <Pressable accessibilityLabel="Stop" onPress={onStop} style={[s.sendCircle, { backgroundColor: t.ink }]}>{Ic.stop(t.bg)}</Pressable>
               ) : (
-                <Pressable accessibilityLabel="Send" onPress={onSend} disabled={!sendEnabled} style={[s.sendCircle, { backgroundColor: sendEnabled ? t.accent : t.fill }]}>{Ic.send(sendEnabled ? t.onAccent : t.label3)}</Pressable>
+                <Pressable accessibilityLabel="Send" onPress={() => { tap(); onSend(); }} disabled={!sendEnabled} style={[s.sendCircle, { backgroundColor: sendEnabled ? t.accent : t.fill }]}>{Ic.send(sendEnabled ? t.onAccent : t.label3)}</Pressable>
               )}
             </View>
-          </View>
+          </Glass>
           <Text style={s.disclaimer}>On-device AI can make mistakes — check important answers.</Text>
         </View>
       </View>
+      {header}
+      {banner || (busy && !empty) ? (
+        <View pointerEvents="none" style={[s.stripFloat, { top: headH + 4 }]}>
+          <Glass t={t} radius={16} style={s.strip}>
+            {busy && !empty ? <ActivityIndicator size="small" color={t.accent} style={{ transform: [{ scale: 0.8 }] }} /> : null}
+            <Text style={s.stripTxt}>{banner || (status.state === 'downloading' ? `${status.label}${eta ? ' · ' + eta : ''}` : status.label)}</Text>
+          </Glass>
+        </View>
+      ) : null}
     </KeyboardAvoidingView>
   );
 
@@ -535,12 +561,13 @@ export default function ChatUI({
 
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: t.bg }}>
-      {showSide ? <View style={s.sidebar}><ChatList {...listProps} /></View> : null}
+      <Ambient t={t} />
+      {showSide ? <View style={[s.sidebarWrap, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 10 }]}><Glass t={t} radius={28} style={s.sidebar}><ChatList {...listProps} insets={{ top: 0, bottom: 0 }} /></Glass></View> : null}
       <View style={{ flex: 1 }}>{main}</View>
 
       <Modal visible={drawer} transparent animationType="fade" onRequestClose={() => setDrawer(false)}>
         <Pressable style={s.drawerBackdrop} onPress={() => setDrawer(false)}>
-          <Pressable style={s.drawer} onPress={() => {}}><ChatList {...listProps} inDrawer /></Pressable>
+          <Pressable style={[s.drawer, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]} onPress={() => {}}><Glass t={t} radius={28} style={{ flex: 1, paddingHorizontal: 12 }}><ChatList {...listProps} insets={{ top: 0, bottom: 0 }} inDrawer /></Glass></Pressable>
         </Pressable>
       </Modal>
 
@@ -592,22 +619,31 @@ function styles(t, wide) {
     default: { boxShadow: t.dark ? '0 5px 20px rgba(0,0,0,0.5)' : '0 5px 20px rgba(59,42,26,0.08)' },
   });
   return StyleSheet.create({
+    headerFloat: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: 12 },
+    headCircle: { width: 44, height: 44 },
+    headHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    headPill: { height: 44, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4 },
+    pillBtn: { height: 44, minWidth: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 10 },
+    pillSep: { width: StyleSheet.hairlineWidth, height: 20, backgroundColor: t.sepStrong },
+    stripFloat: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+    sidebarWrap: { width: 316, paddingLeft: 10, paddingRight: 2 },
+    sheetOuter: { width: '100%', maxWidth: 560, paddingHorizontal: 8, paddingBottom: 10 },
     col: { width: '100%', maxWidth: MAX_COL, alignSelf: 'center' },
     scroll: { paddingHorizontal: wide ? 32 : 16, paddingBottom: 18, flexGrow: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 28 },
 
     header: { paddingHorizontal: 8, paddingBottom: 6, backgroundColor: t.bg },
-    headRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    headRow: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%', maxWidth: 900, alignSelf: 'center' },
     headBtn: { width: 42, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
-    hTitle: { color: t.label, fontSize: 17, fontWeight: '600' },
-    hStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
+    hTitle: { color: t.label, fontSize: 16, fontWeight: '600', textAlign: 'center' },
+    hStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1, alignSelf: 'center' },
     dot: { width: 6, height: 6, borderRadius: 3 },
     hStatusTxt: { color: t.label2, fontSize: 12 },
     modelChip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 32, paddingHorizontal: 10, borderRadius: 16, backgroundColor: t.fill2, maxWidth: 170 },
-    modelChipTxt: { color: t.label, fontSize: 13.5, fontWeight: '600', flexShrink: 1 },
+    modelChipTxt: { color: t.label, fontSize: 14, fontWeight: '600', maxWidth: 120 },
     banner: { backgroundColor: t.fill, paddingVertical: 7, paddingHorizontal: 16 },
     bannerTxt: { color: t.label2, fontSize: 12.5, textAlign: 'center' },
-    strip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 7, backgroundColor: t.fill2 },
+    strip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 14 },
     stripTxt: { color: t.label2, fontSize: 12.5, fontWeight: '600' },
 
     setup: { width: '100%', maxWidth: 440, alignItems: 'center', paddingHorizontal: 8 },
@@ -626,7 +662,7 @@ function styles(t, wide) {
     eyebrow: { color: t.accent, fontSize: 12, fontWeight: '800', letterSpacing: 1.6 },
     greet: { color: t.label, fontSize: wide ? 30 : 26, fontWeight: '700', letterSpacing: -0.4 },
     greetSub: { color: t.label2, fontSize: 15, lineHeight: 21, marginTop: 4 },
-    startList: { marginTop: 20, backgroundColor: t.fill2, borderRadius: 12, overflow: 'hidden' },
+    startList: { marginTop: 20 },
     startRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.sep },
     startIcon: { width: 26, alignItems: 'center' },
     startTitle: { color: t.label, fontSize: 16, fontWeight: '500' },
@@ -650,8 +686,8 @@ function styles(t, wide) {
     actions: { flexDirection: 'row', gap: 2, marginTop: 8, marginLeft: -6 },
     actBtn: { width: 32, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
 
-    composerWrap: { paddingHorizontal: wide ? 32 : 12, paddingTop: 8, backgroundColor: t.bg },
-    composer: { backgroundColor: t.fill2, borderRadius: 20, paddingTop: 4, paddingHorizontal: 8, paddingBottom: 8 },
+    composerWrap: { paddingHorizontal: wide ? 32 : 10, paddingTop: 6, backgroundColor: 'transparent' },
+    composer: { paddingTop: 4, paddingHorizontal: 8, paddingBottom: 8 },
     input: { maxHeight: 150, minHeight: 42, color: t.label, fontSize: 16.5, lineHeight: 22, paddingHorizontal: 10, paddingTop: Platform.OS === 'ios' ? 10 : 6, paddingBottom: 6 },
     toolRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     roundBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
@@ -665,27 +701,27 @@ function styles(t, wide) {
     attachSub: { color: t.label2, fontSize: 12, marginTop: 1 },
     attachX: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
 
-    sidebar: { width: 300, backgroundColor: t.side, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: t.sep, paddingHorizontal: 12 },
+    sidebar: { flex: 1, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10 },
     brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6, paddingVertical: 8 },
     brandTxt: { color: t.label, fontSize: 28, fontWeight: '700', letterSpacing: -0.4 },
     newChat: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
     newChatTxt: { color: t.onAccent, fontSize: 15, fontWeight: '700' },
-    search: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 10, paddingHorizontal: 10, height: 38, borderRadius: 12, backgroundColor: t.fill2, borderWidth: StyleSheet.hairlineWidth, borderColor: t.sep },
+    search: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 6, paddingHorizontal: 10, height: 36, borderRadius: 10, backgroundColor: t.fill },
     searchInput: { flex: 1, color: t.label, fontSize: 14.5, paddingVertical: 0 },
     groupLbl: { color: t.label2, fontSize: 13, fontWeight: '600', marginTop: 16, marginBottom: 4, marginLeft: 8 },
     chatRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 10, borderRadius: 10 },
-    chatRowOn: { backgroundColor: t.dark ? '#2C2C2E' : '#E5E5EA' },
+    chatRowOn: { backgroundColor: t.fill },
     tab: { width: 0, height: 0 },
     chatRowTitle: { color: t.label, fontSize: 15 },
     chatRowTime: { color: t.label3, fontSize: 12, marginTop: 2 },
-    sideFoot: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.sep },
-    footBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 10 },
+    sideFoot: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.sep },
+    footBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 12 },
     footIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
     footModel: { color: t.label, fontSize: 14.5, fontWeight: '700' },
     footSub: { color: t.label2, fontSize: 12 },
 
-    sheetBackdrop: { flex: 1, backgroundColor: 'rgba(20,16,12,0.4)', justifyContent: 'flex-end', alignItems: 'center' },
-    sheet: { width: '100%', maxWidth: 560, backgroundColor: t.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingBottom: 34, paddingTop: 8 },
+    sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'flex-end', alignItems: 'center' },
+    sheet: { paddingHorizontal: 14, paddingBottom: 18, paddingTop: 8 },
     grabber: { width: 40, height: 5, borderRadius: 3, backgroundColor: t.sepStrong, alignSelf: 'center', marginBottom: 12 },
     sheetTitle: { color: t.label, fontSize: 20, fontWeight: '700', marginBottom: 8, marginLeft: 4 },
     pickRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 14 },
@@ -694,8 +730,8 @@ function styles(t, wide) {
     manageBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 12, marginTop: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.sep },
     manageTxt: { color: t.accent, fontSize: 15.5, fontWeight: '700' },
 
-    drawerBackdrop: { flex: 1, backgroundColor: 'rgba(20,16,12,0.4)', flexDirection: 'row' },
-    drawer: { width: '84%', maxWidth: 330, backgroundColor: t.side, paddingHorizontal: 12 },
+    drawerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', flexDirection: 'row' },
+    drawer: { width: '86%', maxWidth: 340, paddingLeft: 8 },
 
     toast: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
     toastTxt: { color: t.bg, fontSize: 14, fontWeight: '700', backgroundColor: t.ink, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 100, overflow: 'hidden' },
