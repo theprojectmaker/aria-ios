@@ -272,7 +272,7 @@ function ModelPicker({ t, s, visible, onClose, chatModel, onPick, onManage }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.sheetBackdrop} onPress={onClose}>
-        <Pressable style={s.sheetOuter} onPress={() => {}}><Glass t={t} radius={30} style={s.sheet}>
+        <Pressable style={s.sheetOuter} onPress={() => {}}><Glass t={t} regular radius={30} style={s.sheet}>
           <View style={s.grabber} />
           <Text style={s.sheetTitle}>Model for this note</Text>
           <Opt id="auto" title="Automatic" sub={`Smartest model on this device${auto ? ` — now ${auto.name}` : ''}`} />
