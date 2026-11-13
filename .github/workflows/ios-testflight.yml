@@ -45,10 +45,10 @@ jobs:
       - name: Check the token is set
         run: |
           if [ -z "$EXPO_TOKEN" ]; then echo "::error::Add the EXPO_TOKEN repository secret first"; exit 1; fi
-          npx --yes eas-cli@latest whoami
+          npx --yes eas-cli@27.3.0 whoami
 
       - name: Build the app on this Mac (eas build --local)
-        run: npx --yes eas-cli@latest build --platform ios --profile production --local --non-interactive --output "$RUNNER_TEMP/app.ipa"
+        run: npx --yes eas-cli@27.3.0 build --platform ios --profile production --local --non-interactive --output "$RUNNER_TEMP/app.ipa"
 
       - name: Keep the .ipa as a download
         uses: actions/upload-artifact@v4
@@ -59,4 +59,4 @@ jobs:
 
       - name: Send to TestFlight
         if: ${{ inputs.submit }}
-        run: npx --yes eas-cli@latest submit --platform ios --profile production --path "$RUNNER_TEMP/app.ipa" --non-interactive --wait
+        run: npx --yes eas-cli@27.3.0 submit --platform ios --profile production --path "$RUNNER_TEMP/app.ipa" --non-interactive --wait
