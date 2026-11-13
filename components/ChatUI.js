@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator, Image, Modal, Animated, Easing, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, Circle, Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import Markdown from 'react-native-markdown-display';
 import { ActionsSheet, ToolsHub } from './tools';
 import Settings from './settings';
@@ -15,7 +15,7 @@ import { useModels } from './models';
 import Glass from './glass';
 
 /* ── marks & icons ─────────────────────────────────────────────────────── */
-const SPARK = 'M12 1.6C12.95 7.6 16.4 11.05 22.4 12C16.4 12.95 12.95 16.4 12 22.4C11.05 16.4 7.6 12.95 1.6 12C7.6 11.05 11.05 7.6 12 1.6Z';
+const SPARK = 'M6.5 3.5h11a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4H11l-4.6 3.4c-.5.4-1.2 0-1.2-.6v-2.9A4 4 0 0 1 2.5 13.5v-6a4 4 0 0 1 4-4Z';
 export const AriaMark = ({ size = 22, c = '#fff' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24"><Path d={SPARK} fill={c} /></Svg>
 );
@@ -23,9 +23,8 @@ export const AriaMark = ({ size = 22, c = '#fff' }) => (
 function Seal({ t, size = 64 }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <Circle cx="32" cy="32" r="31" fill={t.accent} />
-      <Circle cx="32" cy="32" r="26.5" fill="none" stroke={t.onAccent} strokeOpacity={0.35} strokeWidth="1" />
-      <Path d={SPARK} fill={t.onAccent} transform="translate(19 19) scale(1.08)" />
+      <Rect x="0" y="0" width="64" height="64" rx="15" fill={t.accent} />
+      <Path d={SPARK} fill={t.onAccent} transform="translate(14 14) scale(1.5)" />
     </Svg>
   );
 }
@@ -59,23 +58,6 @@ const Ic = {
 const MAX_COL = 740;
 // Light haptic tick (no-op where haptics aren't available).
 const tap = () => { try { require('expo-haptics').impactAsync('light'); } catch (e) {} };
-
-/* Softly lit backdrop so glass has something to refract. */
-function Ambient({ t }) {
-  return (
-    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100">
-      <Defs>
-        <RadialGradient id="g1" cx="12" cy="8" r="60" gradientUnits="userSpaceOnUse"><Stop offset="0" stopColor={t.glow1} stopOpacity={t.dark ? 0.55 : 0.9} /><Stop offset="1" stopColor={t.glow1} stopOpacity={0} /></RadialGradient>
-        <RadialGradient id="g2" cx="92" cy="30" r="55" gradientUnits="userSpaceOnUse"><Stop offset="0" stopColor={t.glow2} stopOpacity={t.dark ? 0.45 : 0.8} /><Stop offset="1" stopColor={t.glow2} stopOpacity={0} /></RadialGradient>
-        <RadialGradient id="g3" cx="40" cy="105" r="60" gradientUnits="userSpaceOnUse"><Stop offset="0" stopColor={t.glow3} stopOpacity={t.dark ? 0.4 : 0.7} /><Stop offset="1" stopColor={t.glow3} stopOpacity={0} /></RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100" height="100" fill={t.bg} />
-      <Rect x="0" y="0" width="100" height="100" fill="url(#g1)" />
-      <Rect x="0" y="0" width="100" height="100" fill="url(#g2)" />
-      <Rect x="0" y="0" width="100" height="100" fill="url(#g3)" />
-    </Svg>
-  );
-}
 
 /* ── small pieces ──────────────────────────────────────────────────────── */
 function PressScale({ style, children, onPress, onLongPress, disabled, hitSlop, label }) {
@@ -561,7 +543,6 @@ export default function ChatUI({
 
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: t.bg }}>
-      <Ambient t={t} />
       {showSide ? <View style={[s.sidebarWrap, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 10 }]}><Glass t={t} radius={28} style={s.sidebar}><ChatList {...listProps} insets={{ top: 0, bottom: 0 }} /></Glass></View> : null}
       <View style={{ flex: 1 }}>{main}</View>
 
