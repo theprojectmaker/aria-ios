@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, memo } from 'react';
 import {
   View, Text, ScrollView, TextInput, Pressable, StyleSheet, Share,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Image, Modal, Animated, Easing, useWindowDimensions,
+  KeyboardAvoidingView, Keyboard, Platform, ActivityIndicator, Image, Modal, Animated, Easing, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
@@ -302,6 +302,19 @@ export default function ChatUI({
   const prefs = usePrefs();
   const scrollRef = useRef(null);
   const [drawer, setDrawer] = useState(false);
+  const [kbOpen, setKbOpen] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKbOpen(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbOpen(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  // Notes page slides in from the left as its own full page.
+  const slide = useRef(new Animated.Value(0)).current;
+  const [drawerShown, setDrawerShown] = useState(false);
+  useEffect(() => {
+    if (drawer) { setDrawerShown(true); Animated.timing(slide, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: Platform.OS !== 'web' }).start(); }
+    else if (drawerShown) Animated.timing(slide, { toValue: 0, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: Platform.OS !== 'web' }).start(() => setDrawerShown(false));
+  }, [drawer]);
   const [sideOpen, setSideOpen] = useState(true);
   const [toast, setToast] = useState('');
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -471,9 +484,9 @@ export default function ChatUI({
         </View>
       </ScrollView>
 
-      <View style={[s.composerWrap, { paddingBottom: insets.bottom ? insets.bottom : 12 }]}>
+      <View style={[s.composerWrap, { paddingBottom: kbOpen ? 6 : Math.max(8, insets.bottom - 14) }]}>
         <View style={s.col}>
-          <Glass t={t} interactive style={s.composer} radius={26}>
+          <Glass t={t} regular interactive style={s.composer} radius={26}>
             {attachedUri ? (
               <View style={s.attachRow}>
                 <Image source={{ uri: attachedUri }} style={s.attachThumb} resizeMode="cover" />
@@ -517,7 +530,6 @@ export default function ChatUI({
               )}
             </View>
           </Glass>
-          <Text style={s.disclaimer}>On-device AI can make mistakes — check important answers.</Text>
         </View>
       </View>
       {header}
@@ -543,13 +555,18 @@ export default function ChatUI({
 
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: t.bg }}>
-      {showSide ? <View style={[s.sidebarWrap, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 10 }]}><Glass t={t} radius={28} style={s.sidebar}><ChatList {...listProps} insets={{ top: 0, bottom: 0 }} /></Glass></View> : null}
+      {showSide ? <View style={[s.sidebarWrap, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 10 }]}><Glass t={t} regular radius={28} style={s.sidebar}><ChatList {...listProps} insets={{ top: 0, bottom: 0 }} /></Glass></View> : null}
       <View style={{ flex: 1 }}>{main}</View>
 
-      <Modal visible={drawer} transparent animationType="fade" onRequestClose={() => setDrawer(false)}>
-        <Pressable style={s.drawerBackdrop} onPress={() => setDrawer(false)}>
-          <Pressable style={[s.drawer, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]} onPress={() => {}}><Glass t={t} radius={28} style={{ flex: 1, paddingHorizontal: 12 }}><ChatList {...listProps} insets={{ top: 0, bottom: 0 }} inDrawer /></Glass></Pressable>
-        </Pressable>
+      <Modal visible={drawerShown} transparent animationType="none" onRequestClose={() => setDrawer(false)}>
+        <Animated.View style={[s.notesPage, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 6, transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [-width, 0] }) }] }]}>
+          <View style={s.notesTop}>
+            <Pressable accessibilityLabel="Close notes" onPress={() => setDrawer(false)} hitSlop={10} style={({ pressed }) => [s.doneBtn, pressed && { opacity: 0.5 }]}>
+              <Text style={s.doneTxt}>Done</Text>
+            </Pressable>
+          </View>
+          <ChatList {...listProps} insets={{ top: 0, bottom: 0 }} inDrawer />
+        </Animated.View>
       </Modal>
 
       <Settings t={t} visible={settingsOpen} onClose={() => setSettingsOpen(false)} onClearChats={onClearChats} onOpenModels={() => { setSettingsOpen(false); setModelsOpen(true); }} />
@@ -609,6 +626,10 @@ function styles(t, wide) {
     stripFloat: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
     sidebarWrap: { width: 316, paddingLeft: 10, paddingRight: 2 },
     sheetOuter: { width: '100%', maxWidth: 560, paddingHorizontal: 8, paddingBottom: 10 },
+    notesPage: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: t.dark ? '#000000' : '#F2F2F7', paddingHorizontal: 16 },
+    notesTop: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 4 },
+    doneBtn: { paddingVertical: 6, paddingHorizontal: 4 },
+    doneTxt: { color: t.accent, fontSize: 17, fontWeight: '600' },
     col: { width: '100%', maxWidth: MAX_COL, alignSelf: 'center' },
     scroll: { paddingHorizontal: wide ? 32 : 16, paddingBottom: 18, flexGrow: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 28 },
