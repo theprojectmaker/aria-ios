@@ -196,8 +196,15 @@ export const SYSTEM_PROMPT =
  * opts: { text, refs: [{title, text}], calc: {expr, display}|null, think: boolean,
  *         canToggleThinking: boolean, kind }
  */
-export function buildPrompt({ text, refs = [], calc: c = null, think = false, canToggleThinking = false, kind = 'chat' }) {
+export function todayLine(d = new Date()) {
+  try { return 'Today is ' + d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + '.'; } catch (e) { return ''; }
+}
+const DATE_RE = /\b(today|tonight|tomorrow|yesterday|date|year|month|day|time|now|current|currently|latest|recent|age|old|how long (ago|until)|when is|this week)\b/i;
+
+export function buildPrompt({ text, refs = [], calc: c = null, think = false, canToggleThinking = false, kind = 'chat', now }) {
   const parts = [];
+  // The model has no clock and assumes its training year; give it the date when relevant.
+  if (now !== false && DATE_RE.test(text)) { parts.push('(' + todayLine(now) + ' Your training data ends earlier, so use this date for anything about "now".)'); parts.push(''); }
   if (refs.length) {
     parts.push('Reference notes (from Aria\'s offline library — accurate, use them when relevant, do not mention them):');
     refs.forEach((r, i) => parts.push(`[${i + 1}] ${r.title}: ${String(r.text).replace(/\s+/g, ' ').trim()}`));

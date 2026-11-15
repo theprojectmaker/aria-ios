@@ -7,7 +7,7 @@ import { useTheme } from './theme';
 import { loadChats, saveChats, newChat, titleFrom } from './chatStore';
 import { usePrefs } from './prefs';
 import { loadKnowledge, knowledgeReady, retrieve } from './knowledge';
-import { route, calc, buildPrompt, parseThink, mathAnswer, SYSTEM_PROMPT, DEPTH } from './brain';
+import { route, calc, buildPrompt, parseThink, mathAnswer, SYSTEM_PROMPT, DEPTH, todayLine } from './brain';
 import { chainFor, catalogEntry, resolveConfig } from './catalog';
 import { loadHandbook, searchHandbook } from './handbook';
 import { initLibrary, libraryReady, librarySearch, libraryDefine } from './library';
@@ -73,7 +73,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   const isPad = Platform.OS === 'ios' && Platform.isPad;
 
   const engine = useAriaEngine(MODEL, {
-    system: lean ? '' : SYSTEM_PROMPT,
+    system: lean ? '' : SYSTEM_PROMPT + ' ' + todayLine() + ' Your training data ends before this date; never assume the current year from memory.',
     generationConfig: { maxNewTokens: lean ? 320 : 1024, temperature: 0.65 },
   });
 

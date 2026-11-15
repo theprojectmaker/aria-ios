@@ -177,9 +177,41 @@ const STARTERS = [
 ];
 
 /* ── message ───────────────────────────────────────────────────────────── */
+// Reveals streamed text at an even pace (about 30 updates a second, catching
+// up faster when far behind) instead of jumping in chunks. Text that was
+// already complete when the message appeared is shown at once.
+function useSmoothText(target, streaming) {
+  const full = target || '';
+  const [n, setN] = useState(streaming ? 0 : full.length);
+  const nRef = useRef(n); nRef.current = n;
+  const fullRef = useRef(full); fullRef.current = full;
+  useEffect(() => {
+    if (nRef.current >= full.length) { if (nRef.current > full.length) setN(full.length); return; }
+    const id = setInterval(() => {
+      const len = fullRef.current.length;
+      const cur = nRef.current;
+      if (cur >= len) { clearInterval(id); return; }
+      const step = Math.max(2, Math.ceil((len - cur) / 10));
+      setN(Math.min(len, cur + step));
+    }, 33);
+    return () => clearInterval(id);
+  }, [full.length > n, streaming]);
+  return n >= full.length ? full : full.slice(0, n);
+}
+
+// New messages ease in instead of popping.
+function FadeIn({ children, style }) {
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(a, { toValue: 1, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: Platform.OS !== 'web' }).start(); }, []);
+  return <Animated.View style={[style, { opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}>{children}</Animated.View>;
+}
+
 const FOLLOW_UPS = ['Explain it more simply', 'Give me an example', 'Quiz me on this'];
 const Message = memo(function Message({ t, s, m, isLast, onCopy, onRegenerate, index, generating, onAsk }) {
   const md = useMemo(() => mdStyles(t), [t]);
+  const fresh = useRef(!!m.streaming || undefined).current;
+  const shown = useSmoothText(m.role === 'assistant' ? m.text : '', !!m.streaming);
+  const Wrap = fresh ? FadeIn : View;
   if (m.role === 'user') {
     return (
       <Pressable onLongPress={() => m.text && onCopy(m.text)} style={s.userRow}>
@@ -190,12 +222,12 @@ const Message = memo(function Message({ t, s, m, isLast, onCopy, onRegenerate, i
       </Pressable>
     );
   }
-  const done = !m.streaming;
+  const done = !m.streaming && shown.length >= (m.text || '').length;
   return (
-    <View style={s.aiCard}>
+    <Wrap style={s.aiCard}>
       {m.think ? <ThoughtBlock t={t} think={m.think} live={!!m.streaming && !m.text} /> : null}
       {m.streaming && !m.think && !m.text && m.thinking ? <ThoughtBlock t={t} think="" live /> : null}
-      {m.text ? <Markdown style={md}>{m.text}</Markdown> : null}
+      {shown ? <Markdown style={md}>{shown}</Markdown> : null}
       {m.streaming && !m.think && !m.text && !m.thinking ? <TypingDots t={t} /> : null}
       {done && m.sources && m.sources.length ? (
         <View style={s.sources}>
@@ -220,7 +252,7 @@ const Message = memo(function Message({ t, s, m, isLast, onCopy, onRegenerate, i
           ))}
         </View>
       ) : null}
-    </View>
+    </Wrap>
   );
 });
 
