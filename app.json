@@ -69,6 +69,13 @@
           "photosPermission": "Aria lets you pick a photo to ask the on-device AI about it. Your photos never leave your device.",
           "cameraPermission": "Aria lets you take a photo to ask the on-device AI about it. Your photos never leave your device."
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Aria uses the microphone so you can speak your question instead of typing.",
+          "speechRecognitionPermission": "Aria turns your speech into text on this device so you can ask questions by voice."
+        }
       ]
     ],
     "experiments": {

@@ -91,6 +91,8 @@ export default function ChatWeb() {
       onPickExample={(ex) => setInput(ex)} onPickImage={() => setAttachedUri(DEMO_IMG)}
       attachedUri={attachedUri} onClearImage={() => setAttachedUri(null)}
       onAsk={(q) => { const base = [...messages, { role: 'user', text: q }]; setMessages([...base, { role: 'assistant', text: '', streaming: true }]); setTimeout(() => stream(base, DEMO_REPLY, '', { sources: ['Speed of light'] }), 300); }}
+      onRenameChat={(cid, title) => setChats((cs) => cs.map((c) => (c.id === cid ? { ...c, title } : c)))}
+      onPinChat={(cid, pinned) => setChats((cs) => cs.map((c) => (c.id === cid ? { ...c, pinned } : c)))}
       title={active.title} chats={chats.map((c) => ({ ...c, model: chatModels[c.id] || c.model }))} activeChatId={id}
       chatModel={chatModels[id] || 'auto'} onSetChatModel={(m) => setChatModels((x) => ({ ...x, [id]: m }))}
       onNewChat={onNewChat} onOpenChat={(cid) => setActiveId(cid)} onDeleteChat={onDeleteChat} onClearChats={onClearChats}

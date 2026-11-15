@@ -49,7 +49,7 @@ function historyOf(messages) {
   return out.filter((m, i) => !(m.role === 'user' && out[i + 1] && out[i + 1].role === 'user'));
 }
 
-function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat, onOpenChat, onDeleteChat, onClearChats, onSetChatModel }) {
+function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat, onOpenChat, onDeleteChat, onClearChats, onSetChatModel, onRenameChat, onPinChat }) {
   const { models } = require('react-native-executorch');
   const prefs = usePrefs();
   const modelState = useModels();
@@ -336,7 +336,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
         canSend={canSend} title={active.title} download={DOWNLOAD}
         chats={chats} activeChatId={activeChatId}
         onNewChat={onNewChat} onOpenChat={onOpenChat} onDeleteChat={onDeleteChat} onClearChats={onClearChats}
-        onAsk={onAsk}
+        onAsk={onAsk} onRenameChat={onRenameChat} onPinChat={onPinChat}
         chatModel={chatModel} onSetChatModel={(id) => onSetChatModel(activeChatId, id)}
       />
     </>
@@ -384,6 +384,10 @@ function ChatsManager({ t }) {
     });
   }, []);
   const onClearChats = useCallback(() => { const c = newChat(); setChats([c]); setActiveId(c.id); saveChats([c]); }, []);
+  const patchChat = useCallback((chatId, patch) => {
+    const next = chatsRef.current.map((c) => (c.id === chatId ? { ...c, ...patch } : c));
+    setChats(next); saveChats(next);
+  }, []);
   const onSetChatModel = useCallback((chatId, model) => {
     const next = chatsRef.current.map((c) => (c.id === chatId ? { ...c, model } : c));
     setChats(next); saveChats(next);
@@ -398,6 +402,7 @@ function ChatsManager({ t }) {
       persistMessages={persistMessages}
       onNewChat={onNewChat} onOpenChat={onOpenChat} onDeleteChat={onDeleteChat} onClearChats={onClearChats}
       onSetChatModel={onSetChatModel}
+      onRenameChat={(id, title) => patchChat(id, { title })} onPinChat={(id, pinned) => patchChat(id, { pinned })}
     />
   );
 }

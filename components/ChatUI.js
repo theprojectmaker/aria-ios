@@ -15,6 +15,7 @@ import { useModels } from './models';
 import Glass from './glass';
 import Sheet from './sheet';
 import UpdatePill from './updates';
+import { useVoice } from './voice';
 import { useLibrary, LIBRARY_AVAILABLE } from './library';
 
 /* ── marks & icons ─────────────────────────────────────────────────────── */
@@ -55,10 +56,13 @@ const Ic = {
   brain: (c) => <Svg width={15} height={15} viewBox="0 0 24 24"><Path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3h1V4H9ZM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3h-1V4h1Z" fill="none" stroke={c} strokeWidth={1.7} strokeLinejoin="round" /></Svg>,
   search: (c) => <Svg width={15} height={15} viewBox="0 0 24 24"><Circle cx={11} cy={11} r={6.5} fill="none" stroke={c} strokeWidth={1.9} /><Path d="M16 16l4 4" stroke={c} strokeWidth={1.9} strokeLinecap="round" /></Svg>,
   sidebar: (c) => <Svg width={21} height={21} viewBox="0 0 24 24"><Rect x="3.5" y="4.5" width="17" height="15" rx="3" fill="none" stroke={c} strokeWidth={1.8} /><Path d="M9.5 4.5v15" stroke={c} strokeWidth={1.8} /></Svg>,
+  mic: (c) => <Svg width={19} height={19} viewBox="0 0 24 24"><Rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke={c} strokeWidth={1.8} /><Path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" /></Svg>,
+  pin: (c) => <Svg width={13} height={13} viewBox="0 0 24 24"><Path d="M9 3h6l-1 6 4 4H6l4-4-1-6ZM12 13v8" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /></Svg>,
   check: (c) => <Svg width={18} height={18} viewBox="0 0 24 24"><Path d="M5 13l4 4L19 7" fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" /></Svg>,
 };
 
 const MAX_COL = 740;
+const hasChatsProp = (c) => Array.isArray(c);
 // Light haptic tick (no-op where haptics aren't available).
 const tap = () => { try { require('expo-haptics').impactAsync('light'); } catch (e) {} };
 
@@ -217,23 +221,27 @@ const Message = memo(function Message({ t, s, m, isLast, onCopy, onRegenerate, i
 });
 
 /* ── notebook list (iPad sidebar / phone drawer) ───────────────────────── */
-function ChatList({ t, s, chats, activeChatId, onOpen, onDelete, onNew, onSettings, onModels, status, insets, inDrawer }) {
+function ChatList({ t, s, chats, activeChatId, onOpen, onDelete, onNew, onSettings, onModels, onRename, onPin, status, insets, inDrawer }) {
+  const [menu, setMenu] = useState(null);
+  const [name, setName] = useState('');
   const [q, setQ] = useState('');
   const list = (chats || []).filter((c) => !q || (c.title || '').toLowerCase().includes(q.toLowerCase()));
-  const today = list.filter((c) => Date.now() - (c.updatedAt || 0) < 86400000);
-  const older = list.filter((c) => Date.now() - (c.updatedAt || 0) >= 86400000);
+  const pinned = list.filter((c) => c.pinned);
+  const today = list.filter((c) => !c.pinned && Date.now() - (c.updatedAt || 0) < 86400000);
+  const older = list.filter((c) => !c.pinned && Date.now() - (c.updatedAt || 0) >= 86400000);
   const ready = status && status.state === 'ready';
   const Row = (c) => {
     const on = c.id === activeChatId;
     const locked = c.model && c.model !== 'auto' ? catalogEntry(c.model) : null;
     return (
-      <Pressable key={c.id} onPress={() => onOpen(c.id)} style={({ pressed }) => [s.chatRow, on && s.chatRowOn, pressed && { opacity: 0.6 }]}>
+      <Pressable key={c.id} onPress={() => onOpen(c.id)} onLongPress={() => { tap(); setName(c.title || ''); setMenu(c); }} style={({ pressed }) => [s.chatRow, on && s.chatRowOn, pressed && { opacity: 0.6 }]}>
         <View style={[s.tab, { backgroundColor: on ? t.accent : t.sepStrong }]} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[s.chatRowTitle, on && { fontWeight: '700' }]} numberOfLines={1}>{c.title || 'New note'}</Text>
           <Text style={s.chatRowTime}>{timeAgo(c.updatedAt)}{locked ? ` · ${locked.name}` : ''}</Text>
         </View>
-        <Pressable accessibilityLabel="Delete chat" onPress={() => onDelete(c.id)} hitSlop={8} style={{ padding: 4 }}>{Ic.trash(t.label3)}</Pressable>
+        {c.pinned ? Ic.pin(t.label3) : null}
+        <Pressable accessibilityLabel="Note options" onPress={() => { setName(c.title || ''); setMenu(c); }} hitSlop={8} style={{ padding: 4 }}><Text style={{ color: t.label3, fontSize: 18, fontWeight: '700', marginTop: -6 }}>…</Text></Pressable>
       </Pressable>
     );
   };
@@ -248,12 +256,32 @@ function ChatList({ t, s, chats, activeChatId, onOpen, onDelete, onNew, onSettin
         <TextInput value={q} onChangeText={setQ} placeholder="Search notes" placeholderTextColor={t.label3} style={s.searchInput} />
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 10 }} showsVerticalScrollIndicator={false}>
+        {pinned.length ? <Text style={s.groupLbl}>Pinned</Text> : null}
+        {pinned.map(Row)}
         {today.length ? <Text style={s.groupLbl}>Today</Text> : null}
         {today.map(Row)}
         {older.length ? <Text style={s.groupLbl}>Earlier</Text> : null}
         {older.map(Row)}
         {!list.length ? <Text style={[s.groupLbl, { textTransform: 'none', letterSpacing: 0 }]}>{q ? 'No matches' : 'No notes yet'}</Text> : null}
       </ScrollView>
+      <Sheet t={t} visible={!!menu} onClose={() => setMenu(null)}>
+        {menu ? (
+          <View>
+            <Text style={s.sheetTitle}>Note</Text>
+            <View style={s.renameRow}>
+              <TextInput value={name} onChangeText={setName} placeholder="Name" placeholderTextColor={t.label3} style={s.renameInput} returnKeyType="done"
+                onSubmitEditing={() => { if (name.trim()) onRename && onRename(menu.id, name.trim()); setMenu(null); }} />
+              <Pressable onPress={() => { if (name.trim()) onRename && onRename(menu.id, name.trim()); setMenu(null); }} hitSlop={8}><Text style={s.manageTxt}>Rename</Text></Pressable>
+            </View>
+            <Pressable onPress={() => { onPin && onPin(menu.id, !menu.pinned); setMenu(null); }} style={({ pressed }) => [s.pickRow, pressed && { backgroundColor: t.fill }]}>
+              <Text style={s.pickTitle}>{menu.pinned ? 'Unpin' : 'Pin to top'}</Text>
+            </Pressable>
+            <Pressable onPress={() => { onDelete(menu.id); setMenu(null); }} style={({ pressed }) => [s.pickRow, pressed && { backgroundColor: t.fill }]}>
+              <Text style={[s.pickTitle, { color: t.red }]}>Delete note</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </Sheet>
       <View style={[s.sideFoot, { paddingBottom: insets.bottom + 12 }]}>
         <Pressable accessibilityLabel="Models" onPress={onModels} style={({ pressed }) => [s.footBtn, pressed && { opacity: 0.6 }]}>
           {Ic.chip(t.label2)}
@@ -300,7 +328,7 @@ export default function ChatUI({
   status, onDownload, banner,
   onPickImage, attachedUri, onClearImage, canSend,
   title, chats, activeChatId, onNewChat, onOpenChat, onDeleteChat,
-  onPickExample, onClearChats, chatModel, onSetChatModel, onAsk,
+  onPickExample, onClearChats, chatModel, onSetChatModel, onAsk, onRenameChat, onPinChat,
   placeholder = 'Ask anything…', download = {},
 }) {
   const insets = useSafeAreaInsets();
@@ -309,6 +337,11 @@ export default function ChatUI({
   const s = styles(t, wide);
   const prefs = usePrefs();
   const lib = useLibrary();
+  const mst = useModels();
+  const proState = (mst.status['qwen3-4b'] || {}).state;
+  const offerPro = hasChatsProp(chats) && mst.loaded && proState !== 'ready' && !mst.failed.includes('qwen3-4b');
+  const voiceBase = useRef('');
+  const voice = useVoice((tx) => setInput((voiceBase.current ? voiceBase.current + ' ' : '') + tx));
   const scrollRef = useRef(null);
   const [drawer, setDrawer] = useState(false);
   const [kbOpen, setKbOpen] = useState(false);
@@ -484,6 +517,18 @@ export default function ChatUI({
                   </Pressable>
                 </Glass>
               ) : null}
+              {offerPro ? (
+                <Glass t={t} style={s.startList} radius={16}>
+                  <Pressable onPress={() => setModelsOpen(true)} style={({ pressed }) => [s.startRow, { borderBottomWidth: 0 }, pressed && { backgroundColor: t.fill2 }]}>
+                    <View style={s.startIcon}>{Ic.chip(t.accent)}</View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.startTitle}>{proState === 'downloading' ? `Downloading Aria Pro · ${Math.round(((mst.status['qwen3-4b'] || {}).progress || 0) * 100)}%` : 'Get smarter answers'}</Text>
+                      <Text style={s.startSub}>Aria Pro knows the most · 2.6 GB · best on newer devices</Text>
+                    </View>
+                    {Ic.chevron(t.label3, false)}
+                  </Pressable>
+                </Glass>
+              ) : null}
               {recent.length ? (<>
                 <Text style={s.deskSection}>Recent</Text>
                 <Glass t={t} style={s.startList} radius={16}>
@@ -522,7 +567,7 @@ export default function ChatUI({
               style={s.input}
               value={input}
               onChangeText={setInput}
-              placeholder={ready ? placeholder : 'Aria is getting ready…'}
+              placeholder={voice.listening ? 'Listening…' : ready ? placeholder : 'Aria is getting ready…'}
               placeholderTextColor={t.label3}
               editable={ready && !generating}
               multiline
@@ -544,6 +589,9 @@ export default function ChatUI({
                 </Pressable>
               ) : null}
               <View style={{ flex: 1 }} />
+              {voice.available && !generating ? (
+                <Pressable accessibilityLabel={voice.listening ? 'Stop listening' : 'Speak'} onPress={() => { tap(); voiceBase.current = voice.listening ? voiceBase.current : input.trim(); voice.toggle(); }} hitSlop={6} style={[s.roundBtn, voice.listening && { backgroundColor: t.red }]}>{Ic.mic(voice.listening ? '#FFFFFF' : t.label)}</Pressable>
+              ) : null}
               {generating ? (
                 <Pressable accessibilityLabel="Stop" onPress={onStop} style={[s.sendCircle, { backgroundColor: t.ink }]}>{Ic.stop(t.bg)}</Pressable>
               ) : (
@@ -569,7 +617,7 @@ export default function ChatUI({
   const listProps = {
     t, s, chats, activeChatId, status, insets,
     onOpen: (id) => { onOpenChat && onOpenChat(id); setDrawer(false); },
-    onDelete: onDeleteChat,
+    onDelete: onDeleteChat, onRename: onRenameChat, onPin: onPinChat,
     onNew: () => { onNewChat && onNewChat(); setDrawer(false); },
     onSettings: () => { setDrawer(false); setSettingsOpen(true); },
     onModels: () => { setDrawer(false); setModelsOpen(true); },
@@ -655,6 +703,8 @@ function styles(t, wide) {
     followRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
     followChip: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 16, backgroundColor: t.fill },
     followTxt: { color: t.accent, fontSize: 14, fontWeight: '500' },
+    renameRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: t.fill, borderRadius: 12, paddingHorizontal: 12, marginBottom: 6 },
+    renameInput: { flex: 1, color: t.label, fontSize: 16, paddingVertical: 11 },
     col: { width: '100%', maxWidth: MAX_COL, alignSelf: 'center' },
     scroll: { paddingHorizontal: wide ? 32 : 16, paddingBottom: 18, flexGrow: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 28 },
