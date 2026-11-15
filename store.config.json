@@ -1,0 +1,43 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "version": "1.1.0",
+    "copyright": "2026 Moses Sasson",
+    "release": {
+      "automaticRelease": true
+    },
+    "categories": ["PRODUCTIVITY", "EDUCATION"],
+    "info": {
+      "en-US": {
+        "title": "Aria: Offline AI Chat",
+        "subtitle": "Private on-device AI assistant",
+        "description": "Aria is an AI assistant that runs on your iPhone or iPad instead of in the cloud. Your questions, photos and notes are processed on your device and are not sent to a server. There is no account and no sign-in.\n\nASK ANYTHING\nAsk a question and get a clear, organised answer. Turn on Deep think for hard problems and Aria works through them step by step before it answers. Each note keeps its own memory, so Aria remembers what you said earlier in that note and never mixes it into another one.\n\nPHOTOS OF PAGES AND WORKSHEETS\nTake or choose a photo of printed text, such as a worksheet or a page from a book. Aria reads the text on your device and works through the questions it finds.\n\nSTUDY HELP\n• Explanations of topics and books at the depth you ask for\n• Step-by-step working for maths and science problems\n• Quiz me: one question at a time, then your score\n• Help with essays, emails and messages\n• Follow-up buttons such as \"Explain it more simply\" and \"Give me an example\"\n\nEXACT ARITHMETIC\nCalculations are done by a built-in calculator, not guessed by the AI.\n\nA LIBRARY THAT WORKS OFFLINE\nAria includes a handbook of more than 1,300 formulas, rules and facts that you can search yourself. You can also add a free offline library of about 79,000 encyclopedia articles and an 85,000-word dictionary. Aria checks these before it answers and shows which entries it used.\n\nCHOOSE YOUR MODEL\nThe Models page lists twelve models you can download, from small and fast to large and knowledgeable, including Qwen3, Google Gemma 4, Microsoft Phi-4 mini, Meta Llama 3.2, Liquid LFM2.5 and SmolLM2. Automatic picks the smartest model on your device, or you can lock a note to one model. Download and delete models whenever you like.\n\nMADE FOR IPHONE AND IPAD\nLight and dark mode, voice input, rename and pin notes, and a sidebar on iPad.\n\nGOOD TO KNOW\n• The first launch downloads an AI model (about 1.5 GB for the default). Wi-Fi is recommended. After that Aria works without the internet.\n• Larger models need a recent device with 6 GB of memory or more.\n• Models that run on a phone are smaller than cloud AI. Answers can be wrong, so check anything important.\n• Aria is a study aid. Use it to learn and to check your work.",
+        "keywords": ["offline ai", "private", "on device", "assistant", "chatbot", "local ai", "homework", "study", "quiz", "ocr", "llm"],
+        "promoText": "Private AI that runs on your device. No account, and no internet needed after setup. Now with twelve models to choose from and an offline library.",
+        "releaseNotes": "A new design, more models and an offline library.",
+        "marketingUrl": "https://github.com/theprojectmaker/aria-ios",
+        "supportUrl": "https://github.com/theprojectmaker/aria-ios/blob/main/SUPPORT.md",
+        "privacyPolicyUrl": "https://github.com/theprojectmaker/aria-ios/blob/main/PRIVACY.md",
+        "screenshots": {
+          "APP_IPHONE_61": [
+            "store/apple/screenshot/en-US/APP_IPHONE_61/01-home.jpg",
+            "store/apple/screenshot/en-US/APP_IPHONE_61/02-answer.jpg",
+            "store/apple/screenshot/en-US/APP_IPHONE_61/03-models.jpg",
+            "store/apple/screenshot/en-US/APP_IPHONE_61/04-library.jpg",
+            "store/apple/screenshot/en-US/APP_IPHONE_61/05-dark.jpg"
+          ],
+          "APP_IPAD_PRO_3GEN_129": [
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/01-home.jpg",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/02-answer.jpg",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/03-models.jpg",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/04-library.jpg"
+          ]
+        }
+      }
+    },
+    "review": {
+      "demoRequired": false,
+      "notes": "Aria runs its AI models on the device. There are no accounts and no sign-in, so no demo account is needed.\n\nFIRST LAUNCH: the app downloads its default language model once (about 1.5 GB, from Hugging Face). Please use Wi-Fi and allow a few minutes; a progress ring is shown. After that the app works offline. If the device is low on memory the app steps down to a smaller model automatically.\n\nWHAT TO TRY\n1. Ask tab: type any question and send. Tap \"Deep think\" first for step-by-step reasoning.\n2. Camera or + button: take or choose a photo of printed text; the text is read on the device (a small text-recognition model, about 100 MB, downloads the first time).\n3. Model button (top right) > Get more models: the Models page, where other models can be downloaded or deleted. These are optional.\n4. Library tab: search the built-in handbook. The larger offline library (about 75 MB, public-domain and openly licensed reference text, hosted on GitHub) is an optional download.\n5. Microphone: voice input uses Apple speech recognition and asks for permission.\n\nPRIVACY: the app collects no data. Network use is limited to downloading model and library files and checking for app updates.\n\nSince the previous submission the interface has been completely redesigned with its own layout, the Library and Models pages were added, and chats are now kept as notes with per-note memory."
+    }
+  }
+}

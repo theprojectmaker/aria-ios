@@ -35,4 +35,14 @@ jobs:
 
       - name: Send the listing
         if: ${{ inputs.action == 'push' }}
-        run: npx --yes eas-cli@27.3.0 metadata:push --profile production --non-interactive
+        run: |
+          cp store.config.json "$RUNNER_TEMP/mine.json"
+          mv store "$RUNNER_TEMP/store-mine"
+          rm -f store.config.json
+          npx --yes eas-cli@27.3.0 metadata:pull --profile production --non-interactive > /dev/null
+          cp store.config.json "$RUNNER_TEMP/pulled.json"
+          rm -rf store store.config.json
+          mv "$RUNNER_TEMP/store-mine" store
+          cp "$RUNNER_TEMP/mine.json" store.config.json
+          node scripts/merge-review.cjs "$RUNNER_TEMP/pulled.json" store.config.json
+          npx --yes eas-cli@27.3.0 metadata:push --profile production --non-interactive

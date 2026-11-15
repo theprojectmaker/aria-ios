@@ -572,7 +572,7 @@ export default function ChatUI({
                     <View style={s.startIcon}>{Ic.chip(t.accent)}</View>
                     <View style={{ flex: 1 }}>
                       <Text style={s.startTitle}>{proState === 'downloading' ? `Downloading Aria Pro · ${Math.round(((mst.status['qwen3-4b'] || {}).progress || 0) * 100)}%` : 'Get smarter answers'}</Text>
-                      <Text style={s.startSub}>Aria Pro knows the most · 2.6 GB · best on newer devices</Text>
+                      <Text style={s.startSub}>Aria Pro knows the most · 2.9 GB · best on newer devices</Text>
                     </View>
                     {Ic.chevron(t.label3, false)}
                   </Pressable>
