@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { usePrefs, setTheme, setModelPref, setKnowledge, setReasoning } from './prefs';
 import { MODEL_CATALOG, AUTO, normalizeModelPref } from './catalog';
+import { Grabber } from './sheet';
 import { useLibrary, downloadLibrary, cancelLibrary, deleteLibrary, LIBRARY_AVAILABLE } from './library';
 
 const Close = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M6 6l12 12M18 6L6 18" stroke={c} strokeWidth={2} strokeLinecap="round" /></Svg>;
@@ -50,10 +51,11 @@ export default function Settings({ t, visible, onClose, onClearChats, onOpenMode
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet">
-      <View style={[s.wrap, { paddingTop: insets.top + 8 }]}>
+      <View style={[s.wrap, { paddingTop: Platform.OS === 'ios' ? 4 : insets.top + 8 }]}>
+        <Grabber t={t} />
         <View style={s.head}>
           <Text style={s.headTitle}>Settings</Text>
-          <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => [s.closeBtn, pressed && { opacity: 0.5 }]}><Close c={t.label} /></Pressable>
+          <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => pressed && { opacity: 0.5 }}><Text style={{ color: t.accent, fontSize: 17, fontWeight: '600' }}>Done</Text></Pressable>
         </View>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 30 }} showsVerticalScrollIndicator={false}>
           <Text style={s.section}>Models</Text>

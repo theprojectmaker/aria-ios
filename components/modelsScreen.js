@@ -1,6 +1,7 @@
 /* Models page — every model on one screen: what's on this device, what can be
    downloaded, progress, delete, and what Automatic picks right now. */
-import { Modal, View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import { Modal, View, Text, ScrollView, Pressable, StyleSheet, Alert, Platform } from 'react-native';
+import { Grabber } from './sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { MODEL_CATALOG, autoPick, catalogEntry } from './catalog';
@@ -63,10 +64,11 @@ export default function ModelsScreen({ t, visible, onClose }) {
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet">
-      <View style={[s.wrap, { paddingTop: insets.top + 8 }]}>
+      <View style={[s.wrap, { paddingTop: Platform.OS === 'ios' ? 4 : insets.top + 8 }]}>
+        <Grabber t={t} />
         <View style={s.head}>
           <Text style={s.title}>Models</Text>
-          <Pressable onPress={onClose} hitSlop={10} style={s.close}><Close c={t.label} /></Pressable>
+          <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => pressed && { opacity: 0.5 }}><Text style={{ color: t.accent, fontSize: 17, fontWeight: '600' }}>Done</Text></Pressable>
         </View>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40, maxWidth: 760, width: '100%', alignSelf: 'center' }}>
           <View style={[s.card, { backgroundColor: t.irisBg, borderColor: 'transparent' }]}>

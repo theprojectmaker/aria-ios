@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { View, Text, ScrollView, TextInput, Pressable, StyleSheet, Modal } from 'react-native';
+import { View, Text, ScrollView, TextInput, Pressable, StyleSheet, Modal, Platform } from 'react-native';
+import Sheet, { Grabber } from './sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -52,10 +53,8 @@ export function ActionsSheet({ t, visible, onClose, onPhoto, onTool, onWriting }
     </Pressable>
   );
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={s.backdrop} onPress={onClose}>
-        <Pressable style={[s.sheet, { paddingBottom: insets.bottom + 10 }]} onPress={() => {}}>
-          <View style={s.grab} />
+    <Sheet t={t} visible={visible} onClose={onClose}>
+        <View>
           <Row name="photo" label="Add a photo" onPress={() => { onClose(); onPhoto && onPhoto(); }} />
 
           <Text style={s.section}>Tools</Text>
@@ -67,9 +66,8 @@ export function ActionsSheet({ t, visible, onClose, onPhoto, onTool, onWriting }
           <View style={s.grid}>
             {WRITING_PRESETS.map((w) => <Chip key={w.key} item={w} onPress={() => { onClose(); onWriting && onWriting(w.value); }} />)}
           </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+        </View>
+    </Sheet>
   );
 }
 
@@ -80,10 +78,11 @@ export function ToolsHub({ t, toolId, onClose }) {
   const title = (UTILS.find((u) => u.key === toolId) || {}).title || '';
   return (
     <Modal visible={!!toolId} animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet">
-      <View style={[s.wrap, { paddingTop: insets.top + 8 }]}>
+      <View style={[s.wrap, { paddingTop: Platform.OS === 'ios' ? 4 : insets.top + 8 }]}>
+        <Grabber t={t} />
         <View style={s.head}>
           <Text style={s.headTitle}>{title}</Text>
-          <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => [s.closeBtn, pressed && { opacity: 0.5 }]}><Ico name="close" c={t.label} s={20} /></Pressable>
+          <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => pressed && { opacity: 0.5 }}><Text style={{ color: t.accent, fontSize: 17, fontWeight: '600' }}>Done</Text></Pressable>
         </View>
         {toolId === 'calc' && <Calculator t={t} />}
         {toolId === 'convert' && <Converter t={t} />}

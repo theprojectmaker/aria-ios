@@ -22,9 +22,13 @@ function inTri(px, py, ax, ay, bx, by, cx, cy) { const d = (x1, y1, x2, y2, x3, 
 // Speech bubble: a rounded body plus a short tail at the lower left.
 // Curved tail like Apple's bubbles: inside one circle, outside an offset one (a crescent).
 const tail = (x, y) => y > C + 90 && x < C - 40 && Math.hypot(x - (C - 150), y - (C + 75)) <= 175 && Math.hypot(x - (C - 330), y - (C + 70)) >= 200;
-const bubble = (x, y) => sdRoundRect(x, y, C, C, 300, 250, 110) <= 0;
+// Messages-style bubble: an ellipse smoothly joined to a short curved tail.
+const sdEllipse = (x, y, cx, cy, a, b) => (Math.hypot((x - cx) / a, (y - cy) / b) - 1) * Math.min(a, b);
+const sdSeg = (x, y, ax, ay, bx, by, r0, r1) => { const dx = bx - ax, dy = by - ay; const h = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy))); return Math.hypot(x - ax - dx * h, y - ay - dy * h) - (r0 + (r1 - r0) * h); };
+const smin = (a, b, k) => { const h = Math.max(0, Math.min(1, 0.5 + 0.5 * (b - a) / k)); return b + (a - b) * h - k * h * (1 - h); };
+const bubble = (x, y) => smin(sdEllipse(x, y, C, C - 25, 315, 262), sdSeg(x, y, C - 185, C + 170, C - 262, C + 292, 62, 10), 36) <= 0;
 // Three lines of "text" inside the bubble.
-const lines = (x, y) => [[C - 110, 360], [C, 360], [C + 110, 230]].some(([cy, w]) => sdRoundRect(x, y, C - 180 + w / 2, cy, w / 2, 28, 28) <= 0);
+const lines = (x, y) => [[C - 115, 330], [C - 25, 330], [C + 65, 205]].some(([cy, w]) => sdRoundRect(x, y, C - 165 + w / 2, cy, w / 2, 25, 25) <= 0);
 
 function cover(fn) { const m = new Float32Array(N * N); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { let c = 0; for (let j = 0; j < SS; j++) for (let i = 0; i < SS; i++) if (fn(x + (i + 0.5) / SS, y + (j + 0.5) / SS)) c++; m[y * N + x] = c / (SS * SS); } return m; }
 const B = cover(bubble), T = cover(lines);
@@ -34,7 +38,8 @@ const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[
 function render(bg, glyph, ink, transparent) {
   const px = new Float32Array(N * N * 4);
   for (let i = 0; i < N * N; i++) {
-    let col = bg; let a = 255;
+    const yy = Math.floor(i / N) / N;
+    let col = Array.isArray(bg[0]) ? mix(bg[0], bg[1], yy) : bg; let a = 255;
     col = mix(col, glyph, B[i]);
     col = mix(col, ink, T[i] * B[i]);
     if (transparent) { col = mix(glyph, ink, T[i]); a = B[i] * 255; }
@@ -48,9 +53,9 @@ function downsample(img, size) {
   return out;
 }
 
-const light = render(hex('#FFFFFF'), hex('#007AFF'), hex('#FFFFFF'));
-const dark = render(hex('#000000'), hex('#0A84FF'), hex('#000000'));
-const tinted = render(hex('#000000'), hex('#FFFFFF'), hex('#000000'));
+const light = render([hex('#2B95FF'), hex('#006AEB')], hex('#FFFFFF'), hex('#0A7BFA'));
+const dark = render([hex('#2C2C2E'), hex('#0E0E10')], hex('#3D9BFF'), hex('#161618'));
+const tinted = render(hex('#000000'), hex('#F2F2F2'), hex('#000000'));
 const glyph = render(hex('#000000'), hex('#FFFFFF'), hex('#007AFF'), true);
 
 fs.writeFileSync(new URL('icon.png', OUT), png(N, N, light, false));

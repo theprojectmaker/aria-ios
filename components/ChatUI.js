@@ -13,6 +13,7 @@ import { usePrefs, setReasoning } from './prefs';
 import { MODEL_CATALOG, autoPick, catalogEntry } from './catalog';
 import { useModels } from './models';
 import Glass from './glass';
+import Sheet from './sheet';
 
 /* ── marks & icons ─────────────────────────────────────────────────────── */
 const SPARK = 'M6.5 3.5h11a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4H11l-4.6 3.4c-.5.4-1.2 0-1.2-.6v-2.9A4 4 0 0 1 2.5 13.5v-6a4 4 0 0 1 4-4Z';
@@ -261,7 +262,7 @@ function ModelPicker({ t, s, visible, onClose, chatModel, onPick, onManage }) {
   const ready = MODEL_CATALOG.filter((m) => st.status[m.id] && st.status[m.id].state === 'ready');
   const auto = catalogEntry(autoPick(ready.map((m) => m.id), st.failed));
   const Opt = ({ id, title, sub }) => (
-    <Pressable onPress={() => { onPick(id); onClose(); }} style={({ pressed }) => [s.pickRow, pressed && { backgroundColor: t.fill }]}>
+    <Pressable onPress={() => { tap(); onPick(id); onClose(); }} style={({ pressed }) => [s.pickRow, pressed && { backgroundColor: t.fill }]}>
       <View style={{ flex: 1 }}>
         <Text style={s.pickTitle}>{title}</Text>
         <Text style={s.pickSub}>{sub}</Text>
@@ -270,19 +271,14 @@ function ModelPicker({ t, s, visible, onClose, chatModel, onPick, onManage }) {
     </Pressable>
   );
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={s.sheetBackdrop} onPress={onClose}>
-        <Pressable style={s.sheetOuter} onPress={() => {}}><Glass t={t} regular radius={30} style={s.sheet}>
-          <View style={s.grabber} />
+    <Sheet t={t} visible={visible} onClose={onClose}>
           <Text style={s.sheetTitle}>Model for this note</Text>
           <Opt id="auto" title="Automatic" sub={`Smartest model on this device${auto ? ` — now ${auto.name}` : ''}`} />
           {ready.map((m) => <Opt key={m.id} id={m.id} title={m.name} sub={`${m.base} · ${m.pitch}`} />)}
           <Pressable onPress={() => { onClose(); onManage(); }} style={({ pressed }) => [s.manageBtn, pressed && { opacity: 0.7 }]}>
             {Ic.chip(t.accent)}<Text style={s.manageTxt}>Get more models</Text>
           </Pressable>
-        </Glass></Pressable>
-      </Pressable>
-    </Modal>
+    </Sheet>
   );
 }
 
