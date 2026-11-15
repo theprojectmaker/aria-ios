@@ -47,6 +47,7 @@ export function indexHandbook(arr) {
   }
 }
 
+export function handbookEntries() { return H || []; }
 export function handbookReady() { return !!H && H.length > 0; }
 export function handbookCount() { return H ? H.length : 0; }
 

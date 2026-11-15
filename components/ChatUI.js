@@ -15,6 +15,7 @@ import { useModels } from './models';
 import Glass from './glass';
 import Sheet from './sheet';
 import UpdatePill from './updates';
+import { StudyScreen, LibraryScreen } from './study';
 import { useVoice } from './voice';
 import { useLibrary, LIBRARY_AVAILABLE } from './library';
 
@@ -172,7 +173,8 @@ function dateLine() {
 const STARTERS = [
   { key: 'worksheet', title: 'Solve a worksheet', sub: 'Snap a photo — every question answered', icon: 'scan', kind: 'photo', mode: 'camera' },
   { key: 'explain', title: 'Explain a topic or book', sub: 'Deep, organised explanations', icon: 'book', kind: 'text', value: 'Tell me about ' },
-  { key: 'math', title: 'Exact math', sub: 'Calculations that are always right', icon: 'sigma', kind: 'text', value: 'What is ' },
+  { key: 'homework', title: 'Homework help', sub: 'Worked step by step, with the answer', icon: 'sigma', kind: 'text', value: 'Help me with this homework problem, step by step: ' },
+  { key: 'quiz', title: 'Quiz me', sub: 'One question at a time, then your score', icon: 'bulb', kind: 'text', value: 'Quiz me on ' },
   { key: 'write', title: 'Help me write', sub: 'Essays, emails, messages', icon: 'pencil', kind: 'text', value: 'Help me write ' },
 ];
 
@@ -381,6 +383,9 @@ export default function ChatUI({
   const scrollRef = useRef(null);
   const [drawer, setDrawer] = useState(false);
   const [kbOpen, setKbOpen] = useState(false);
+  const [tab, setTab] = useState('ask');
+  // From Study/Library: jump to Ask and either send the question or put it in the box.
+  const askFromTab = (text, justFill) => { setTab('ask'); if (justFill || !onAsk) { onPickExample && onPickExample(text); } else onAsk(text); };
   useEffect(() => {
     const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKbOpen(true));
     const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbOpen(false));
@@ -460,12 +465,16 @@ export default function ChatUI({
             </Pressable>
           </Glass>
         ) : <View style={{ width: 44 }} />}
-        <Pressable style={{ flex: 1, alignItems: 'center', paddingHorizontal: 8 }} onLongPress={() => status.detail && copy(status.detail)} hitSlop={6}>
-          <Text style={s.hTitle} numberOfLines={1}>{empty ? 'Aria' : (title || 'Aria')}</Text>
-          <View style={s.hStatus}>
-            <View style={[s.dot, { backgroundColor: ready ? t.green : status.state === 'unavailable' ? t.label3 : t.accent }]} />
-            <Text style={s.hStatusTxt} numberOfLines={1}>{ready ? 'On device' : status.label}</Text>
-          </View>
+        <Pressable style={{ flex: 1, alignItems: 'center' }} onLongPress={() => status.detail && copy(status.detail)}>
+          {hasChats ? (
+            <Glass t={t} regular radius={22} style={s.seg}>
+              {[['ask', 'Ask'], ['study', 'Study'], ['library', 'Library']].map(([k, label]) => (
+                <Pressable key={k} accessibilityLabel={label + ' tab'} onPress={() => { tap(); setTab(k); }} style={[s.segBtn, tab === k && s.segOn]}>
+                  <Text style={[s.segTxt, tab === k && s.segTxtOn]}>{label}</Text>
+                </Pressable>
+              ))}
+            </Glass>
+          ) : <Text style={s.hTitle} numberOfLines={1}>Aria</Text>}
         </Pressable>
         {hasChats ? (
           <Glass t={t} interactive radius={22} style={s.headPill}>
@@ -484,6 +493,7 @@ export default function ChatUI({
 
   const main = (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {tab === 'ask' ? (<>
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={[s.scroll, { paddingTop: headH + 8 + (busy && !empty ? 34 : 0) + (banner ? 30 : 0) }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={s.col}>
           {setupScreen && (
@@ -640,6 +650,11 @@ export default function ChatUI({
           </Glass>
         </View>
       </View>
+      </>) : tab === 'study' ? (
+        <StudyScreen t={t} top={headH + 8} bottom={insets.bottom} onAsk={askFromTab} />
+      ) : (
+        <LibraryScreen t={t} top={headH + 8} bottom={insets.bottom} onAsk={askFromTab} onGetLibrary={() => setSettingsOpen(true)} />
+      )}
       {header}
       <UpdatePill t={t} top={headH + 4} />
       {banner || (busy && !empty) ? (
@@ -744,6 +759,11 @@ function styles(t, wide) {
     followTxt: { color: t.accent, fontSize: 14, fontWeight: '500' },
     renameRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: t.fill, borderRadius: 12, paddingHorizontal: 12, marginBottom: 6 },
     renameInput: { flex: 1, color: t.label, fontSize: 16, paddingVertical: 11 },
+    seg: { flexDirection: 'row', height: 44, padding: 4, alignItems: 'center' },
+    segBtn: { height: 36, paddingHorizontal: 13, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    segOn: { backgroundColor: t.dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)' },
+    segTxt: { color: t.label2, fontSize: 14.5, fontWeight: '600' },
+    segTxtOn: { color: t.label },
     col: { width: '100%', maxWidth: MAX_COL, alignSelf: 'center' },
     scroll: { paddingHorizontal: wide ? 32 : 16, paddingBottom: 18, flexGrow: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 28 },

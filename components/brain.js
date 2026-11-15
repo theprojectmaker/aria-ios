@@ -162,6 +162,8 @@ export function route(text, mode = 'auto') {
   if (isPureMath(t)) kind = 'math';
   else if (WRITE_RE.test(t)) kind = 'write';
   else if (DEEP_RE.test(t) || t.length > 220) kind = 'reason';
+  else if (/\b(quiz|test) me\b|\bask me questions\b/i.test(t)) kind = 'quiz';
+  else if (/\bhomework\b|\bassignment\b|\bstep by step\b/i.test(t)) kind = 'reason';
   else if (EXPLAIN_RE.test(t)) kind = 'explain';
   else if (/^(who|what|when|where|which|define|meaning of)\b/i.test(t) || /\?$/.test(t)) kind = 'fact';
   let think = kind === 'reason' || kind === 'explain';
@@ -174,6 +176,7 @@ export function route(text, mode = 'auto') {
 
 // What a good answer looks like for each kind (small models need this said).
 export const DEPTH = {
+  quiz: 'Run a quiz: ask ONE clear question now (multiple choice with options A-D when it fits) and stop. Do not give the answer yet. When the user replies, say whether they were right, give the correct answer with a one-sentence explanation, then ask the next question. Keep score, and after 5 questions give the total.',
   explain: 'Give a rich, well-organised answer of about 250-450 words. Start with a one- or two-sentence overview, then use short sections or bullet points for the important details (for a book or film: author/director, year, setting, plot summary, main characters, themes, why it matters; for a person, event or idea: background, key facts, significance). Finish with one interesting detail. Be specific — names, dates, examples.',
   reason: 'Work it out carefully, then give a complete answer: the result first in bold, followed by the clear steps or reasons that get there.',
   fact: 'Answer directly in the first sentence, then add two to four sentences of useful context or detail.',
