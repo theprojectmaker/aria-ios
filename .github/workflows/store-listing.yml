@@ -1,0 +1,38 @@
+# Reads or updates the App Store listing text (description, keywords, URLs,
+# categories) with `eas metadata`, using the App Store Connect key stored on Expo.
+# It never submits anything for review. Run from GitHub: Actions > "App Store listing".
+name: App Store listing
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: pull = show what is in App Store Connect now, push = send store.config.json
+        type: choice
+        options: [pull, push]
+        default: pull
+
+jobs:
+  listing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Show the current listing
+        if: ${{ inputs.action == 'pull' }}
+        run: |
+          rm -f store.config.json
+          npx --yes eas-cli@27.3.0 metadata:pull --profile production --non-interactive
+          cat store.config.json
+
+      - name: Send the listing
+        if: ${{ inputs.action == 'push' }}
+        run: npx --yes eas-cli@27.3.0 metadata:push --profile production --non-interactive

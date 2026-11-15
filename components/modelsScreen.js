@@ -4,7 +4,7 @@ import { Modal, View, Text, ScrollView, Pressable, StyleSheet, Alert, Platform }
 import { Grabber } from './sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { MODEL_CATALOG, autoPick, catalogEntry } from './catalog';
+import { MODEL_CATALOG, MODEL_GROUPS, autoPick, catalogEntry } from './catalog';
 import { useModels, downloadModel, cancelModel, deleteModel, clearFailed } from './models';
 
 const Close = ({ c }) => <Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M6 6l12 12M18 6L6 18" stroke={c} strokeWidth={2} strokeLinecap="round" /></Svg>;
@@ -77,8 +77,17 @@ export default function ModelsScreen({ t, visible, onClose }) {
           </View>
           <Text style={s.section}>On this device{ready.length ? ` · ${used.toFixed(1)} GB` : ''}</Text>
           {ready.length ? ready.map((m) => <Card key={m.id} m={m} />) : <Text style={s.empty}>Nothing downloaded yet. Aria downloads its default model the first time you chat.</Text>}
-          <Text style={s.section}>Available to download</Text>
-          {others.map((m) => <Card key={m.id} m={m} />)}
+          {MODEL_GROUPS.map((g) => {
+            const list = others.filter((m) => m.group === g.key);
+            if (!list.length) return null;
+            return (
+              <View key={g.key}>
+                <Text style={s.section}>{g.title}</Text>
+                <Text style={s.groupNote}>{g.note}</Text>
+                {list.map((m) => <Card key={m.id} m={m} />)}
+              </View>
+            );
+          })}
           <Text style={s.note}>Models download once over the internet (Wi‑Fi recommended), then run fully offline. Bigger models know more but need more memory; if one doesn’t fit, Aria remembers and uses a smaller one.</Text>
         </ScrollView>
       </View>
@@ -93,6 +102,7 @@ function styles(t) {
     title: { color: t.label, fontSize: 30, fontFamily: t.serif, fontWeight: '700' },
     close: { width: 34, height: 34, borderRadius: 17, backgroundColor: t.fill, alignItems: 'center', justifyContent: 'center' },
     section: { color: t.label2, fontSize: 13, fontWeight: '600', marginTop: 24, marginBottom: 8, marginLeft: 4 },
+    groupNote: { color: t.label3, fontSize: 13, lineHeight: 18, marginLeft: 4, marginBottom: 10, marginTop: -2 },
     card: { backgroundColor: t.card, borderRadius: 18, padding: 16, marginBottom: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: t.sep },
     cardTop: { flexDirection: 'row', alignItems: 'flex-start' },
     name: { color: t.label, fontSize: 19, fontFamily: t.serif, fontWeight: '700' },
