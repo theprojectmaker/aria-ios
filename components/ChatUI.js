@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, memo } from 'react';
+import { useRef, useEffect, useState, useMemo, useCallback, memo } from 'react';
 import {
   View, Text, ScrollView, TextInput, Pressable, StyleSheet, Share,
   KeyboardAvoidingView, Keyboard, Platform, ActivityIndicator, Image, Modal, Animated, Easing, useWindowDimensions,
@@ -62,6 +62,9 @@ const Ic = {
 };
 
 const MAX_COL = 740;
+// iOS can't present one modal while another is still dismissing (the app
+// ends up with an invisible layer eating touches), so chained menus wait.
+const afterClose = (fn, ms = 420) => setTimeout(fn, ms);
 const hasChatsProp = (c) => Array.isArray(c);
 // Light haptic tick (no-op where haptics aren't available).
 const tap = () => { try { require('expo-haptics').impactAsync('light'); } catch (e) {} };
@@ -176,6 +179,7 @@ const STARTERS = [
 /* ── message ───────────────────────────────────────────────────────────── */
 const FOLLOW_UPS = ['Explain it more simply', 'Give me an example', 'Quiz me on this'];
 const Message = memo(function Message({ t, s, m, isLast, onCopy, onRegenerate, index, generating, onAsk }) {
+  const md = useMemo(() => mdStyles(t), [t]);
   if (m.role === 'user') {
     return (
       <Pressable onLongPress={() => m.text && onCopy(m.text)} style={s.userRow}>
@@ -191,7 +195,7 @@ const Message = memo(function Message({ t, s, m, isLast, onCopy, onRegenerate, i
     <View style={s.aiCard}>
       {m.think ? <ThoughtBlock t={t} think={m.think} live={!!m.streaming && !m.text} /> : null}
       {m.streaming && !m.think && !m.text && m.thinking ? <ThoughtBlock t={t} think="" live /> : null}
-      {m.text ? <Markdown style={mdStyles(t)}>{m.text}</Markdown> : null}
+      {m.text ? <Markdown style={md}>{m.text}</Markdown> : null}
       {m.streaming && !m.think && !m.text && !m.thinking ? <TypingDots t={t} /> : null}
       {done && m.sources && m.sources.length ? (
         <View style={s.sources}>
@@ -315,7 +319,7 @@ function ModelPicker({ t, s, visible, onClose, chatModel, onPick, onManage }) {
           <Text style={s.sheetTitle}>Model for this note</Text>
           <Opt id="auto" title="Automatic" sub={`Smartest model on this device${auto ? ` — now ${auto.name}` : ''}`} />
           {ready.map((m) => <Opt key={m.id} id={m.id} title={m.name} sub={`${m.base} · ${m.pitch}`} />)}
-          <Pressable onPress={() => { onClose(); onManage(); }} style={({ pressed }) => [s.manageBtn, pressed && { opacity: 0.7 }]}>
+          <Pressable onPress={() => { onClose(); afterClose(onManage); }} style={({ pressed }) => [s.manageBtn, pressed && { opacity: 0.7 }]}>
             {Ic.chip(t.accent)}<Text style={s.manageTxt}>Get more models</Text>
           </Pressable>
     </Sheet>
@@ -334,7 +338,7 @@ export default function ChatUI({
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const wide = width >= 820;
-  const s = styles(t, wide);
+  const s = useMemo(() => styles(t, wide), [t, wide]);
   const prefs = usePrefs();
   const lib = useLibrary();
   const mst = useModels();
@@ -393,7 +397,10 @@ export default function ChatUI({
   }, [messages, generating, attachedUri]);
 
   const flash = (msg) => { setToast(msg); setTimeout(() => setToast(''), 1800); };
-  const copy = (text) => { try { const C = require('expo-clipboard'); C.setStringAsync(text); flash('Copied'); } catch (e) {} };
+  const copy = useCallback((text) => { try { const C = require('expo-clipboard'); C.setStringAsync(text); setToast('Copied'); setTimeout(() => setToast(''), 1800); } catch (e) {} }, []);
+  const hRef = useRef({}); hRef.current = { onAsk, onRegenerate };
+  const askS = useCallback((q) => hRef.current.onAsk && hRef.current.onAsk(q), []);
+  const regenS = useCallback((i) => hRef.current.onRegenerate && hRef.current.onRegenerate(i), []);
   const tapStarter = (sg) => {
     if (sg.kind === 'photo') { onPickImage && onPickImage(sg.mode); }
     else { onPickExample && onPickExample(sg.value || ''); }
@@ -545,7 +552,7 @@ export default function ChatUI({
 
           {!empty && <View style={{ height: 8 }} />}
           {messages.map((m, i) => (
-            <Message key={i} t={t} s={s} m={m} index={i} isLast={i === lastAi} onCopy={copy} onRegenerate={onRegenerate} generating={generating} onAsk={onAsk} />
+            <Message key={i} t={t} s={s} m={m} index={i} isLast={i === lastAi} onCopy={copy} onRegenerate={onRegenerate ? regenS : undefined} generating={generating} onAsk={onAsk ? askS : undefined} />
           ))}
         </View>
       </ScrollView>
@@ -619,8 +626,8 @@ export default function ChatUI({
     onOpen: (id) => { onOpenChat && onOpenChat(id); setDrawer(false); },
     onDelete: onDeleteChat, onRename: onRenameChat, onPin: onPinChat,
     onNew: () => { onNewChat && onNewChat(); setDrawer(false); },
-    onSettings: () => { setDrawer(false); setSettingsOpen(true); },
-    onModels: () => { setDrawer(false); setModelsOpen(true); },
+    onSettings: () => { if (drawer) { setDrawer(false); afterClose(() => setSettingsOpen(true)); } else setSettingsOpen(true); },
+    onModels: () => { if (drawer) { setDrawer(false); afterClose(() => setModelsOpen(true)); } else setModelsOpen(true); },
   };
 
   return (
@@ -639,7 +646,7 @@ export default function ChatUI({
         </Animated.View>
       </Modal>
 
-      <Settings t={t} visible={settingsOpen} onClose={() => setSettingsOpen(false)} onClearChats={onClearChats} onOpenModels={() => { setSettingsOpen(false); setModelsOpen(true); }} />
+      <Settings t={t} visible={settingsOpen} onClose={() => setSettingsOpen(false)} onClearChats={onClearChats} onOpenModels={() => { setSettingsOpen(false); afterClose(() => setModelsOpen(true), 600); }} />
       <ModelsScreen t={t} visible={modelsOpen} onClose={() => setModelsOpen(false)} />
       {onSetChatModel ? <ModelPicker t={t} s={s} visible={pickerOpen} onClose={() => setPickerOpen(false)} chatModel={chatModel} onPick={onSetChatModel} onManage={() => setModelsOpen(true)} /> : null}
 
@@ -649,7 +656,7 @@ export default function ChatUI({
         </View>
       ) : null}
 
-      <ActionsSheet t={t} visible={actionsOpen} onClose={() => setActionsOpen(false)} onPhoto={() => onPickImage && onPickImage()} onTool={(id) => setTool(id)} onWriting={(v) => onPickExample && onPickExample(v)} />
+      <ActionsSheet t={t} visible={actionsOpen} onClose={() => setActionsOpen(false)} onPhoto={() => afterClose(() => onPickImage && onPickImage())} onTool={(id) => afterClose(() => setTool(id))} onWriting={(v) => onPickExample && onPickExample(v)} />
       <ToolsHub t={t} toolId={tool} onClose={() => setTool(null)} />
     </View>
   );

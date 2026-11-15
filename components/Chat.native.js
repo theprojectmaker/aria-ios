@@ -97,10 +97,17 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   const [visionErr, setVisionErr] = useState('');
   const [visionArmed, setVisionArmed] = useState(false);
   const attachRef = useRef(null);
+  const activeRef = useRef(activeChatId); activeRef.current = activeChatId;
+  const busyRef = useRef(false);
+  const paintRef = useRef(0);
   const analyzeRef = useRef(null);
 
-  useEffect(() => { setMessages(active.messages || []); setInput(''); clearAttach(); }, [activeChatId]);
-  useEffect(() => { loadKnowledge(); loadHandbook(); initLibrary(); }, []);
+  useEffect(() => {
+    // Leaving a note mid-answer stops the model so the next note is responsive.
+    if (busyRef.current) { try { engine.stop && engine.stop(); } catch (e) {} }
+    setMessages(active.messages || []); setInput(''); clearAttach(); setGenerating(false);
+  }, [activeChatId]);
+  useEffect(() => { initLibrary(); }, []); // the handbook and built-in encyclopedia load on the first question, not at launch
   useEffect(() => {
     if (visionStatus && visionStatus.state === 'error') {
       setVisionFailed(true);
@@ -108,7 +115,17 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     }
   }, [visionStatus]);
 
-  const commit = (next) => { setMessages(next); persistMessages(next); };
+  const commit = (next, chatId) => {
+    const id = chatId || activeRef.current;
+    if (id === activeRef.current) setMessages(next);
+    persistMessages(next, id);
+  };
+  // Repaint at most ~12 times a second while streaming (not once per token).
+  const paint = (chatId, next) => {
+    const now = Date.now();
+    if (chatId !== activeRef.current || now - paintRef.current < 80) return;
+    paintRef.current = now; setMessages(next);
+  };
   function clearAttach() { attachRef.current = null; setAttachedUri(null); }
 
   const atLast = tier >= CHAIN.length - 1;
@@ -158,6 +175,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   // base = the chat including the new user message (last element).
   const runModel = async (base, prompt, { maxTokens, sources, kind, think: thinkOn }) => {
     const chatId = activeChatId;
+    busyRef.current = true;
     const history = historyOf(base.slice(0, -1));
     const userMsg = base[base.length - 1];
     const key = userMsg.text || '[photo]';
@@ -168,7 +186,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
       await engine.send(chatId, history, prompt, (tok) => {
         acc += tok;
         const { think, answer } = parseThink(acc);
-        setMessages([...base, { role: 'assistant', text: answer, think, streaming: true, sources, thinking: thinkOn }]);
+        paint(chatId, [...base, { role: 'assistant', text: answer, think, streaming: true, sources, thinking: thinkOn }]);
       }, { maxNewTokens: lean ? 320 : maxTokens, key });
     } catch (e) { errored = e; }
     const { think, answer } = parseThink(acc);
@@ -188,7 +206,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
         const h2 = historyOf([...base, { role: 'assistant', text: answer || '…' }]);
         await engine.send(chatId, h2, ask2, (tok) => {
           acc2 += tok;
-          setMessages([...base, { role: 'assistant', text: parseThink(acc2).answer, think, streaming: true, sources }]);
+          paint(chatId, [...base, { role: 'assistant', text: parseThink(acc2).answer, think, streaming: true, sources }]);
         }, { maxNewTokens: 1400, key: '__expand__' });
         const better = parseThink(acc2).answer.trim();
         if (better.split(/\s+/).length > words) text = better;
@@ -205,8 +223,9 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
       text = think ? 'I didn’t finish that thought. Ask again, or turn on **Deep think** for tough questions.' : (acc || 'Sorry — I couldn’t come up with an answer.');
     }
     const secs = Math.max(0.1, (Date.now() - t0) / 1000);
-    commit([...base, { role: 'assistant', text, think, streaming: false, sources, kind, model: entry.name, secs: Math.round(secs * 10) / 10 }]);
-    setGenerating(false);
+    commit([...base, { role: 'assistant', text, think, streaming: false, sources, kind, model: entry.name, secs: Math.round(secs * 10) / 10 }], chatId);
+    busyRef.current = false;
+    if (chatId === activeRef.current) setGenerating(false);
   };
 
   const gatherRefs = async (text, r) => {
@@ -215,6 +234,8 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     const cap = lean ? 420 : 760;
     if (!kbOn || r.kind === 'write') return refs;
     try {
+      await loadHandbook();
+      if (!libraryReady()) await loadKnowledge();
       const word = definitionTarget(text);
       if (word) { const d = await libraryDefine(word); if (d) refs.push({ title: 'Dictionary: ' + d.word, text: String(d.definition).slice(0, cap) }); }
       if (r.kind !== 'chat' || word) {
@@ -249,7 +270,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   const onSend = useCallback(async () => {
     const text = input.trim();
     const img = attachRef.current;
-    if (generating || preparing) return;
+    if (generating || preparing || busyRef.current) return;
 
     if (img) {
       if (!visionFailed && (!visionReady || !analyzeRef.current)) return;
@@ -314,7 +335,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
   }, [messages, generating, engine, kbOn, reasoning, lean, entry, activeChatId]);
 
   const onAsk = useCallback(async (text) => {
-    if (generating || preparing || !engine.isReady || !engine.send) return;
+    if (generating || preparing || busyRef.current || !engine.isReady || !engine.send) return;
     await ask(text, [...messages, { role: 'user', text }]);
   }, [messages, generating, preparing, engine, kbOn, reasoning, lean, entry, activeChatId]);
 
@@ -360,8 +381,9 @@ function ChatsManager({ t }) {
     })();
   }, []);
 
-  const persistMessages = useCallback((msgs) => {
-    const next = chatsRef.current.map((c) => c.id === activeIdRef.current
+  const persistMessages = useCallback((msgs, chatId) => {
+    const target = chatId || activeIdRef.current;
+    const next = chatsRef.current.map((c) => c.id === target
       ? { ...c, messages: msgs, title: (!c.title || c.title === 'New chat') ? titleFrom(msgs) : c.title, updatedAt: Date.now() }
       : c);
     next.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
