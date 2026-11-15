@@ -313,6 +313,11 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
     await ask(lastUser.text, prior);
   }, [messages, generating, engine, kbOn, reasoning, lean, entry, activeChatId]);
 
+  const onAsk = useCallback(async (text) => {
+    if (generating || preparing || !engine.isReady || !engine.send) return;
+    await ask(text, [...messages, { role: 'user', text }]);
+  }, [messages, generating, preparing, engine, kbOn, reasoning, lean, entry, activeChatId]);
+
   const onStop = useCallback(() => { try { engine.stop && engine.stop(); } catch (e) {} setGenerating(false); }, [engine]);
   const canSend = engine.isReady && !preparing && (attachRef.current ? (visionReady || visionFailed) : true);
 
@@ -331,6 +336,7 @@ function ModelChat({ t, active, activeChatId, chats, persistMessages, onNewChat,
         canSend={canSend} title={active.title} download={DOWNLOAD}
         chats={chats} activeChatId={activeChatId}
         onNewChat={onNewChat} onOpenChat={onOpenChat} onDeleteChat={onDeleteChat} onClearChats={onClearChats}
+        onAsk={onAsk}
         chatModel={chatModel} onSetChatModel={(id) => onSetChatModel(activeChatId, id)}
       />
     </>

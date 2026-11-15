@@ -14,6 +14,8 @@ import { MODEL_CATALOG, autoPick, catalogEntry } from './catalog';
 import { useModels } from './models';
 import Glass from './glass';
 import Sheet from './sheet';
+import UpdatePill from './updates';
+import { useLibrary, LIBRARY_AVAILABLE } from './library';
 
 /* ── marks & icons ─────────────────────────────────────────────────────── */
 const SPARK = 'M6.5 3.5h11a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4H11l-4.6 3.4c-.5.4-1.2 0-1.2-.6v-2.9A4 4 0 0 1 2.5 13.5v-6a4 4 0 0 1 4-4Z';
@@ -168,7 +170,8 @@ const STARTERS = [
 ];
 
 /* ── message ───────────────────────────────────────────────────────────── */
-const Message = memo(function Message({ t, s, m, isLast, onCopy, onRegenerate, index, generating }) {
+const FOLLOW_UPS = ['Explain it more simply', 'Give me an example', 'Quiz me on this'];
+const Message = memo(function Message({ t, s, m, isLast, onCopy, onRegenerate, index, generating, onAsk }) {
   if (m.role === 'user') {
     return (
       <Pressable onLongPress={() => m.text && onCopy(m.text)} style={s.userRow}>
@@ -198,6 +201,15 @@ const Message = memo(function Message({ t, s, m, isLast, onCopy, onRegenerate, i
           {isLast && onRegenerate && !generating ? <Pressable accessibilityLabel="Regenerate answer" hitSlop={8} onPress={() => onRegenerate(index)} style={({ pressed }) => [s.actBtn, pressed && { backgroundColor: t.fill }]}>{Ic.retry(t.label3)}</Pressable> : null}
           <Pressable accessibilityLabel="Share answer" hitSlop={8} onPress={() => Share.share({ message: m.text }).catch(() => {})} style={({ pressed }) => [s.actBtn, pressed && { backgroundColor: t.fill }]}>{Ic.share(t.label3)}</Pressable>
           {m.model ? <Text style={s.aiMeta}>{m.model}{m.secs ? ` · ${m.secs}s` : ''}</Text> : null}
+        </View>
+      ) : null}
+      {done && m.text && isLast && onAsk && !generating && m.model !== 'Calculator' ? (
+        <View style={s.followRow}>
+          {FOLLOW_UPS.map((q) => (
+            <Pressable key={q} onPress={() => onAsk(q)} style={({ pressed }) => [s.followChip, pressed && { opacity: 0.5 }]}>
+              <Text style={s.followTxt}>{q}</Text>
+            </Pressable>
+          ))}
         </View>
       ) : null}
     </View>
@@ -288,7 +300,7 @@ export default function ChatUI({
   status, onDownload, banner,
   onPickImage, attachedUri, onClearImage, canSend,
   title, chats, activeChatId, onNewChat, onOpenChat, onDeleteChat,
-  onPickExample, onClearChats, chatModel, onSetChatModel,
+  onPickExample, onClearChats, chatModel, onSetChatModel, onAsk,
   placeholder = 'Ask anything…', download = {},
 }) {
   const insets = useSafeAreaInsets();
@@ -296,6 +308,7 @@ export default function ChatUI({
   const wide = width >= 820;
   const s = styles(t, wide);
   const prefs = usePrefs();
+  const lib = useLibrary();
   const scrollRef = useRef(null);
   const [drawer, setDrawer] = useState(false);
   const [kbOpen, setKbOpen] = useState(false);
@@ -459,6 +472,18 @@ export default function ChatUI({
                   </Pressable>
                 ))}
               </Glass>
+              {LIBRARY_AVAILABLE && hasChats && lib.status !== 'ready' ? (
+                <Glass t={t} style={s.startList} radius={16}>
+                  <Pressable onPress={() => setSettingsOpen(true)} style={({ pressed }) => [s.startRow, { borderBottomWidth: 0 }, pressed && { backgroundColor: t.fill2 }]}>
+                    <View style={s.startIcon}>{Ic.book(t.accent)}</View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.startTitle}>{lib.status === 'downloading' ? `Downloading library · ${Math.round((lib.progress || 0) * 100)}%` : 'Get the offline library'}</Text>
+                      <Text style={s.startSub}>79,000 articles and a dictionary · about 75 MB</Text>
+                    </View>
+                    {Ic.chevron(t.label3, false)}
+                  </Pressable>
+                </Glass>
+              ) : null}
               {recent.length ? (<>
                 <Text style={s.deskSection}>Recent</Text>
                 <Glass t={t} style={s.startList} radius={16}>
@@ -475,7 +500,7 @@ export default function ChatUI({
 
           {!empty && <View style={{ height: 8 }} />}
           {messages.map((m, i) => (
-            <Message key={i} t={t} s={s} m={m} index={i} isLast={i === lastAi} onCopy={copy} onRegenerate={onRegenerate} generating={generating} />
+            <Message key={i} t={t} s={s} m={m} index={i} isLast={i === lastAi} onCopy={copy} onRegenerate={onRegenerate} generating={generating} onAsk={onAsk} />
           ))}
         </View>
       </ScrollView>
@@ -529,6 +554,7 @@ export default function ChatUI({
         </View>
       </View>
       {header}
+      <UpdatePill t={t} top={headH + 4} />
       {banner || (busy && !empty) ? (
         <View pointerEvents="none" style={[s.stripFloat, { top: headH + 4 }]}>
           <Glass t={t} radius={16} style={s.strip}>
@@ -626,6 +652,9 @@ function styles(t, wide) {
     notesTop: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 4 },
     doneBtn: { paddingVertical: 6, paddingHorizontal: 4 },
     doneTxt: { color: t.accent, fontSize: 17, fontWeight: '600' },
+    followRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+    followChip: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 16, backgroundColor: t.fill },
+    followTxt: { color: t.accent, fontSize: 14, fontWeight: '500' },
     col: { width: '100%', maxWidth: MAX_COL, alignSelf: 'center' },
     scroll: { paddingHorizontal: wide ? 32 : 16, paddingBottom: 18, flexGrow: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 28 },
