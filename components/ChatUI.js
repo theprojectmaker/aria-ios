@@ -15,7 +15,7 @@ import { useModels } from './models';
 import Glass from './glass';
 import Sheet from './sheet';
 import UpdatePill from './updates';
-import { StudyScreen, LibraryScreen } from './study';
+import { LibraryScreen } from './study';
 import { useVoice } from './voice';
 import { useLibrary, LIBRARY_AVAILABLE } from './library';
 
@@ -468,7 +468,7 @@ export default function ChatUI({
         <Pressable style={{ flex: 1, alignItems: 'center' }} onLongPress={() => status.detail && copy(status.detail)}>
           {hasChats ? (
             <Glass t={t} regular radius={22} style={s.seg}>
-              {[['ask', 'Ask'], ['study', 'Study'], ['library', 'Library']].map(([k, label]) => (
+              {[['ask', 'Ask'], ['library', 'Library']].map(([k, label]) => (
                 <Pressable key={k} accessibilityLabel={label + ' tab'} onPress={() => { tap(); setTab(k); }} style={[s.segBtn, tab === k && s.segOn]}>
                   <Text style={[s.segTxt, tab === k && s.segTxtOn]}>{label}</Text>
                 </Pressable>
@@ -650,9 +650,7 @@ export default function ChatUI({
           </Glass>
         </View>
       </View>
-      </>) : tab === 'study' ? (
-        <StudyScreen t={t} top={headH + 8} bottom={insets.bottom} onAsk={askFromTab} />
-      ) : (
+      </>) : (
         <LibraryScreen t={t} top={headH + 8} bottom={insets.bottom} onAsk={askFromTab} onGetLibrary={() => setSettingsOpen(true)} />
       )}
       {header}
